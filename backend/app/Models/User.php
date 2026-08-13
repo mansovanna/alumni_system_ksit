@@ -25,6 +25,7 @@ class User extends Authenticatable
         'role',
         'email',
         'status',
+        'profile',
         'password',
     ];
 
@@ -49,5 +50,26 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+
+    public function userInfo()
+    {
+        return $this->hasMany(UserInfo::class);
+    }
+
+
+    public function userInfosOne()
+    {
+        return $this->hasOne(UserInfo::class, 'user_id', 'id');
+    }
+
+    protected $appends = ['profile_url'];
+
+    public function getProfileUrlAttribute(): ?string
+    {
+        return $this->profile
+            ? asset($this->profile)
+            : null;
     }
 }

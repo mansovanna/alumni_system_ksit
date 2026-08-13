@@ -23,9 +23,6 @@ export const icons = reactive([
   { name: "computer", icon: ComputerPhoneSyncIcon },
 ]);
 
-
-
-
 export const colorGroups = reactive([
   {
     name: "primary",
@@ -148,3 +145,27 @@ export const colorGroups = reactive([
     text: "#334155",
   },
 ]);
+
+export const workStatus = reactive([
+  {
+    id: 1,
+    title: "មានការងារធ្វើ",
+    status: "employed",
+  },
+  {
+    id: 2,
+    title: "កំពុងស្វែងរកការងារធ្វើ",
+    status: "seeking",
+  },
+  {
+    id: 3,
+    title: "សិក្សារបន្ដ",
+    status: "continuing_study",
+  },
+  {
+    id: 4,
+    title: "មិនទាន់បានការងារធ្វើ",
+    status: "unemployed",
+  },
+]);
+

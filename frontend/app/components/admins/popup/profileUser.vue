@@ -2,6 +2,8 @@
 import CloseIcon from "~/components/icons/CloseIcon.vue";
 import EditIcon from "~/components/icons/EditIcon.vue";
 
+const avata = useAvatar();
+
 const emit = defineEmits(["close", "submitted"]);
 const props = defineProps({
   data: {
@@ -37,10 +39,13 @@ const props = defineProps({
         >
           <img
             class="rounded-full object-cover object-center"
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8dXNlciUyMHByb2ZpbGV8ZW58MHx8MHx8fDA%3D"
+            :src="
+              data.profile_url
+                ? data.profile_url
+                : avata.textToImage(data.profile_url ?? data.name_english)
+            "
             alt=""
           />
-
           <label
             class="size-8 cursor-pointer hover:bg-slate-200 hover:text-primary absolute bottom-0 right-0 bg-white rounded-full flex justify-center items-center"
           >
@@ -49,55 +54,69 @@ const props = defineProps({
           </label>
         </div>
         <div>
-          <h1 class="text-xl font-kantumruy-pro font-medium">
-            Alumni {{ data }}
+          <h1 class="text-2xl font-Inter font-medium uppercase">
+            {{ data.name_english ?? null }}
           </h1>
-          <p class="text-sm text-slate-400">000 - 000 - 000{{ data }}</p>
+          <p class="text-sm text-slate-400">+855-{{ data.mobile ?? "N/A" }}</p>
         </div>
       </div>
 
-    
-
       <div class="px-4 flex flex-col pb-4 text-sm gap-4">
-          <hr class="text-slate-100" />
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Name Khmer</p>
-          <p class="font-kantumruy-pro text-slate-500">{{ data ?? null }}</p>
+          <p class="font-kantumruy-pro text-primary capitalize">
+            {{ data.name_khmer ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Name English</p>
-          <p  class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-primary capitalize">
+            {{ data.name_english ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Date of Birth</p>
-          <p  class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-slate-500">
+            {{ data.user_infos_one?.date_of_birth ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Mobile Phone</p>
-          <p  class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-primary font-Inter font-medium">
+            +855-{{ data.mobile ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Major</p>
-          <p  class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-slate-500">
+            {{ data.user_infos_one?.major?.title ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Last Year</p>
-          <p  class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-slate-500">
+            {{ data.user_infos_one?.last_year ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Status Work</p>
-          <p class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-slate-500 capitalize">
+            {{ data.user_infos_one?.work ?? "N/A" }}
+          </p>
         </div>
-
+        <hr class="text-slate-100" />
         <div class="flex justify-between items-center gap-2">
           <p>Work Address</p>
-          <p  class=" text-slate-500">{{ data ?? null }}</p>
+          <p class="text-slate-500">
+            {{ data.user_infos_one?.work_address ?? "N/A" }}
+          </p>
         </div>
       </div>
     </div>

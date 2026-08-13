@@ -10,7 +10,14 @@ class Major extends Model
     protected $table = 'majors';
 
     protected $fillable = [
-        'name',
-        'more'
+        'title',
+        'body',
+        'color_from',
+        'color_to',
+        'icon',
     ];
+
+    public function users (){
+        return $this->hasMany(UserInfo::class);
+    }
 }

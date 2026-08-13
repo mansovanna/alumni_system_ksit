@@ -1,27 +1,20 @@
 <script setup lang="ts">
 import CloseIcon from "~/components/icons/CloseIcon.vue";
+import EyeIcon from "~/components/icons/EyeIcon.vue";
 import ImageIcon from "~/components/icons/ImageIcon.vue";
+import OffEyeIcon from "~/components/icons/OffEyeIcon.vue";
+import SpannerIcon from "~/components/icons/SpannerIcon.vue";
+
+/* -------------------------------------------------- */
+const userStore = useUserStore();
 
 /* -------------------------------------------------- */
 /* Options                                              */
 /* -------------------------------------------------- */
 const genders = reactive(["male", "female"]);
 
-const works = reactive([
-  "មានការងារធ្វើ",
-  "កំពុងស្វែងរកការងារធ្វើ",
-  "សិក្សាបន្ដ",
-  "មិនទាន់បានការងារធ្វើ",
-]);
 
-const majors = reactive([
-  "computer of technology",
-  "food of technology",
-  "crope sciences",
-  "animal sciences",
-  "electrical of technology",
-  "9+3",
-]);
+const majors = useMajorStore();
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -29,7 +22,8 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 /* Form State                                           */
 /* -------------------------------------------------- */
 type FormData = {
-  userName: string | null;
+  name_khmer: string | null;
+  name_english: string | null;
   gender: string | null;
   dateOfBirth: string | null;
   phone: string | null;
@@ -37,13 +31,17 @@ type FormData = {
   year: string | null;
   status: string | null;
   address: string | null;
+  work_address: string | null;
   image: File | null;
+  password: string | null;
+  password_confirmation: string | null;
 };
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
 const formData = ref<FormData>({
-  userName: null,
+  name_khmer: null,
+  name_english: null,
   gender: null,
   dateOfBirth: null,
   phone: null,
@@ -51,7 +49,10 @@ const formData = ref<FormData>({
   year: null,
   status: null,
   address: null,
+  work_address: null,
   image: null,
+  password: null,
+  password_confirmation: null,
 });
 
 const errors = ref<FormErrors>({});
@@ -90,7 +91,8 @@ onBeforeUnmount(() => {
 /* Validation                                           */
 /* -------------------------------------------------- */
 const requiredFields: { key: keyof FormErrors; label: string }[] = [
-  { key: "userName", label: "User name is required!" },
+  { key: "name_khmer", label: "User name is required!" },
+  { key: "name_english", label: "User name is required!" },
   { key: "gender", label: "Gender is required!" },
   { key: "dateOfBirth", label: "Date of birth is required!" },
   { key: "phone", label: "Mobile phone is required!" },
@@ -98,7 +100,8 @@ const requiredFields: { key: keyof FormErrors; label: string }[] = [
   { key: "year", label: "Last year is required!" },
   { key: "status", label: "Status work is required!" },
   { key: "address", label: "Address work is required!" },
-  { key: "image", label: "Image is required!" },
+  { key: "password", label: "Password is required!" },
+  { key: "password_confirmation", label: "password_confirmation is required!" },
 ];
 
 const validate = () => {
@@ -113,6 +116,11 @@ const validate = () => {
     }
   }
 
+  if (formData.value.password !== formData.value.password_confirmation) {
+    errors.value["password_confirmation"] = "Password not much!";
+    hasError = true;
+  }
+
   return hasError;
 };
 
@@ -121,11 +129,60 @@ const validate = () => {
 /* -------------------------------------------------- */
 const emit = defineEmits(["close", "submitted"]);
 
-const submit = () => {
+const majorActive = ref(null);
+const handleMajor = (data: any) => {
+  formData.value.major = data.id;
+  majorActive.value = data.title;
+};
+
+const isPassword = ref(false);
+
+const handlePassword = () => {
+  isPassword.value = !isPassword.value;
+};
+
+const isLoading = ref(false);
+const message = ref("");
+const submit = async () => {
   if (validate()) return;
 
-  // TODO: ភ្ជាប់ជាមួយ API (FormData + image upload)
-  emit("submitted", formData.value);
+  // emit("submitted", formData.value);
+
+  const data = new FormData();
+
+  data.append("name_khmer", String(formData.value.name_khmer));
+  data.append("name_english", String(formData.value.name_english));
+  data.append("gender", String(formData.value.gender));
+  data.append("date_of_birth", String(formData.value.dateOfBirth));
+  data.append("major_id", String(formData.value.major));
+  data.append("address", String(formData.value.address));
+  data.append("work", String(formData.value.status));
+  data.append("last_year", String(formData.value.year));
+  data.append("mobile", String(formData.value.phone));
+  data.append("work_address", String(formData.value.work_address));
+  data.append("password", String(formData.value.password));
+  data.append(
+    "password_confirmation",
+    String(formData.value.password_confirmation),
+  );
+
+  if (formData.value.image instanceof File) {
+    data.append("image", formData.value.image);
+  }
+
+  isLoading.value = true;
+  try {
+    const res = await userStore.addUser(data);
+
+    // console.log(res);
+    userStore.data?.data.data.unshift(res.data?.data);
+    emit("close");
+  } catch (e: any) {
+    // console.log(e);
+    message.value = e.response?.data;
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 
@@ -135,7 +192,7 @@ const submit = () => {
     class="w-full justify-center items-center fixed top-0 bottom-0 right-0 left-0 bg-black/20 z-50 backdrop-blur-xs flex p-4"
   >
     <div
-      class="w-1/3 max-md:w-full max-lg:w-2/3 bg-white rounded-2xl border border-slate-400"
+      class="w-3/5 max-md:w-full max-lg:w-8/9 max-xl:w-3/4 bg-white rounded-2xl border border-slate-400"
       @click.stop
     >
       <!-- Header -->
@@ -149,28 +206,53 @@ const submit = () => {
         </button>
       </div>
       <hr class="text-slate-100" />
+      <span v-if="message" class="px-4 text-xs text-red-500">{{
+        message
+      }}</span>
 
       <form @submit.prevent="submit">
         <div class="w-full flex flex-col gap-2">
           <div
             class="w-full px-4 py-2 flex flex-col gap-2 flex-1 h-auto max-h-[70vh] overflow-y-auto"
           >
-            <div class="w-full grid grid-cols-2 gap-4 max-md:grid-cols-1">
-              <!-- User Name / Gender -->
+            <div
+              class="w-full grid grid-cols-3 gap-3 max-md:grid-cols-1 max-lg:grid-cols-2"
+            >
+              <!-- User Khmer / Gender -->
               <div class="w-full">
                 <label class="text-xs text-slate-500">
-                  User Name <span class="text-red-500">*</span>
+                  Name Khmer <span class="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  v-model="formData.userName"
+                  v-model="formData.name_khmer"
                   class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter user name"
+                  placeholder="Enter name khmer"
                   :class="
-                    errors.userName ? 'border-red-500' : 'border-slate-300'
+                    errors.name_khmer ? 'border-red-500' : 'border-slate-300'
                   "
                 />
-                <span class="text-xs text-red-500">{{ errors.userName }}</span>
+                <span class="text-xs text-red-500">{{
+                  errors.name_khmer
+                }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Name English <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.name_english"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter name english"
+                  :class="
+                    errors.name_english ? 'border-red-500' : 'border-slate-300'
+                  "
+                />
+                <span class="text-xs text-red-500">{{
+                  errors.name_english
+                }}</span>
               </div>
 
               <div class="w-full">
@@ -229,11 +311,11 @@ const submit = () => {
                 </label>
                 <OptionsOption
                   class="z-50"
-                  :items="majors"
+                  :items="majors.data?.data ?? []"
                   :title="'Please Select Major'"
-                  :active="formData.major ?? undefined"
+                  :active="majorActive ?? undefined"
                   :z-index="'z-50'"
-                  @update:active="formData.major = $event"
+                  @update:active="handleMajor($event)"
                 />
                 <span class="text-xs text-red-500">{{ errors.major }}</span>
               </div>
@@ -254,7 +336,8 @@ const submit = () => {
 
               <div class="w-full">
                 <label class="text-xs text-slate-500">
-                  Status Work <span class="text-red-500">*</span>
+                  Status Work {{ formData.status
+                  }}<span class="text-red-500">*</span>
                 </label>
                 <select
                   v-model="formData.status"
@@ -262,8 +345,12 @@ const submit = () => {
                   :class="errors.status ? 'border-red-500' : 'border-slate-300'"
                 >
                   <option value="" disabled selected>សូមជ្រើសរើស</option>
-                  <option v-for="w in works" :key="w" :value="w">
-                    {{ w }}
+                  <option
+                    v-for="(item, index) in workStatus"
+                    :key="index"
+                    :value="item.status"
+                  >
+                    {{ item.title }}
                   </option>
                 </select>
                 <span class="text-xs text-red-500">{{ errors.status }}</span>
@@ -283,6 +370,84 @@ const submit = () => {
                   "
                 />
                 <span class="text-xs text-red-500">{{ errors.address }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500"> Work Address </label>
+                <input
+                  type="text"
+                  v-model="formData.work_address"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter address"
+                  :class="
+                    errors.work_address ? 'border-red-500' : 'border-slate-300'
+                  "
+                />
+                <span class="text-xs text-red-500">{{
+                  errors.work_address
+                }}</span>
+              </div>
+
+              <div class="w-full col-span-1">
+                <label class="text-xs text-slate-500">
+                  Create password <span class="text-red-500">*</span>
+                </label>
+                <div class="w-full relative">
+                  <input
+                    :type="isPassword ? 'text' : 'password'"
+                    v-model="formData.password"
+                    class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="******"
+                    :class="
+                      errors.password ? 'border-red-500' : 'border-slate-300'
+                    "
+                  />
+
+                  <button
+                    @click="handlePassword"
+                    type="button"
+                    class="absolute top-0 right-0 bottom-0 p-2 flex justify-center items-center hover:text-red-500 cursor-pointer"
+                    :class="!isPassword ? 'text-primary' : 'text-red-500'"
+                  >
+                    <div>
+                      <component :is="isPassword ? EyeIcon : OffEyeIcon" />
+                    </div>
+                  </button>
+                </div>
+                <span class="text-xs text-red-500">{{ errors.password }}</span>
+              </div>
+
+              <div class="w-full col-span-1">
+                <label class="text-xs text-slate-500">
+                  Confirm password <span class="text-red-500">*</span>
+                </label>
+                <div class="w-full relative">
+                  <input
+                    :type="isPassword ? 'text' : 'password'"
+                    v-model="formData.password_confirmation"
+                    class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="******"
+                    :class="
+                      errors.password_confirmation
+                        ? 'border-red-500'
+                        : 'border-slate-300'
+                    "
+                  />
+
+                  <button
+                    @click="handlePassword"
+                    type="button"
+                    class="absolute top-0 right-0 bottom-0 p-2 flex justify-center items-center hover:text-red-500 cursor-pointer"
+                    :class="!isPassword ? 'text-primary' : 'text-red-500'"
+                  >
+                    <div>
+                      <component :is="isPassword ? EyeIcon : OffEyeIcon" />
+                    </div>
+                  </button>
+                </div>
+                <span class="text-xs text-red-500">{{
+                  errors.password_confirmation
+                }}</span>
               </div>
             </div>
             <!-- Image Upload -->
@@ -325,12 +490,25 @@ const submit = () => {
             </div>
           </div>
 
-          <div class="px-4 pb-2">
+          <div class="px-4 pb-4 flex items-center justify-end gap-6 mt-4">
+            <button
+            @click="$emit('close')"
+              type="button"
+              class="w-1/8 p-2 bg-red-600 text-white text-sm hover:bg-red-700 cursor-pointer rounded-lg min-w-20"
+            >
+              Cancel
+            </button>
+
             <button
               type="submit"
-              class="w-full bg-primary hover:bg-primary/80 py-2 rounded-md text-white text-sm my-2"
+              :disabled="isLoading"
+              class="w-1/8 flex justify-center disabled:bg-secondary items-center text-sm bg-primary text-white rounded-lg p-2 cursor-pointer hover:bg-primary/80 transition-colors"
             >
-              <span>Save</span>
+              <span v-if="!isLoading">Save</span>
+              <div v-else class="font-Inter flex justify-center items-end">
+                <span>Please wating</span>
+                <SpannerIcon />
+              </div>
             </button>
           </div>
         </div>

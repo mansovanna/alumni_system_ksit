@@ -14,15 +14,17 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')
                 ->nullable()
-                ->constrained();
+                ->constrained()
+                ->cascadeOnDelete();
             $table->foreignId('major_id')
                 ->nullable()
                 ->constrained()
                 ->nullOnDelete();
             $table->string('date_of_birth')->nullable();
             $table->string('address')->nullable();
-            $table->enum('status_work', ['employed', 'unemployed', 'seeking', 'continuing_study'])->default('continuing_study');
+            $table->enum('work', ['employed', 'unemployed', 'seeking', 'continuing_study'])->default('continuing_study');
             $table->text('work_address')->nullable();
+            $table->text('last_year')->nullable();
             $table->timestamps();
         });
     }

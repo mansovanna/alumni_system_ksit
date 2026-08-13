@@ -23,8 +23,9 @@ const props = defineProps({
 
 const emit = defineEmits(["update:active"]);
 
-const handle = (item) => {
-  emit("update:active", item);
+const handle = (id, title, status) => {
+  const payload = { id, title, status };
+  emit("update:active", payload);
   isOpen.value = false;
 };
 
@@ -38,7 +39,7 @@ const updatePosition = () => {
   if (!el) return;
   const rect = el.getBoundingClientRect();
   panelStyle.value = {
-    top: `${rect.bottom + 4}px`, // 4px gap, like top-10 spacing
+    top: `${rect.bottom + 4}px`,
     left: `${rect.left}px`,
     width: `${rect.width}px`,
   };
@@ -48,7 +49,7 @@ const open = async () => {
   updatePosition();
   isOpen.value = true;
   await nextTick();
-  updatePosition(); // recalc once panel is mounted, in case layout shifted
+  updatePosition();
 };
 
 const close = () => {
@@ -100,7 +101,9 @@ onBeforeUnmount(() => {
       class="w-full h-10 flex justify-between items-center gap-2 border border-slate-300 rounded-md px-4 py-2 bg-white focus:ring-2 focus:ring-primary/30 text-slate-500 text-sm"
     >
       <Transition name="fade-text" mode="out-in">
-        <span class="capitalize">{{ props.active ?? title }}</span>
+        <span class="capitalize">{{
+          props.active && props.active.length > 0 ? props.active : title
+        }}</span>
       </Transition>
       <ArrowIcon class="rotate-90" />
     </button>
@@ -117,20 +120,20 @@ onBeforeUnmount(() => {
           <div v-if="items" class="w-full flex flex-col gap-0.5">
             <button
               type="button"
-              @click="handle(null)"
+              @click="handle(0, null, null)"
               class="px-4 py-1.5 w-full capitalize hover:bg-slate-100 text-left"
-              :class="active == null ? 'bg-slate-200' : ''"
+              :class="active == null || active == '' ? 'bg-slate-200' : ''"
             >
               {{ title }}
             </button>
             <div v-for="(item, index) in items" :key="index">
               <button
                 type="button"
-                @click="handle(item)"
+                @click="handle(item.id, item.title, item.status)"
                 class="px-4 py-1.5 capitalize w-full hover:bg-slate-100 text-left"
-                :class="active == item ? 'bg-slate-200' : ''"
+                :class="active == item.title ? 'bg-slate-200' : ''"
               >
-                {{ item }}
+                {{ item.title }}
               </button>
             </div>
           </div>

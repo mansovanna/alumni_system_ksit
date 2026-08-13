@@ -7,26 +7,39 @@ import MessageIcon from "../icons/MessageIcon.vue";
 import SettingIcon from "../icons/SettingIcon.vue";
 import UserAdminIcon from "../icons/UserAdminIcon.vue";
 import UserIcon from "../icons/UserIcon.vue";
-
+import { markRaw } from "vue";
 const pages = reactive([
-  { name: "Dashboard", icon: DashboardIcon, route: "/admin" },
-  { name: "Users", icon: UserIcon, route: "/admin/users" },
-  { name: "Staff", icon: UserAdminIcon, route: "/admin/staff" },
-  { name: "Departments", icon: CourseIcon, route: "/admin/department" },
-  { name: "Report & Statistics", icon: AnalyIcon, route: "/admin/report" },
-  { name: "Messages", icon: MessageIcon, route: "/admin/message" },
-  { name: "Events", icon: DateIcon, route: "/admin/event" },
-  { name: "Settings", icon: SettingIcon, route: "/admin/setting" },
+  { name: "Dashboard", icon: markRaw(DashboardIcon), route: "/admin" },
+  { name: "Users", icon: markRaw(UserIcon), route: "/admin/users" },
+  { name: "Staff", icon: markRaw(UserAdminIcon), route: "/admin/staff" },
+  {
+    name: "Departments",
+    icon: markRaw(CourseIcon),
+    route: "/admin/department",
+  },
+  {
+    name: "Report & Statistics",
+    icon: markRaw(AnalyIcon),
+    route: "/admin/report",
+  },
+  { name: "Messages", icon: markRaw(MessageIcon), route: "/admin/message" },
+  { name: "Events", icon: markRaw(DateIcon), route: "/admin/event" },
+  { name: "Settings", icon: markRaw(SettingIcon), route: "/admin/setting" },
 ]);
+
+const sideBarStore = useSideBarStore();
 </script>
 
 <template>
   <div
-    class="w-64 h-screen bg-secondary text-white flex flex-col justify-start"
+    class="h-screen bg-secondary text-white flex flex-col justify-start text-nowrap duration-500 ease-in-out"
+    :class="sideBarStore.sidebar ? 'w-64' : 'w-18 max-lg:w-64'"
   >
-    <div class="p-4 flex justify-start gap-2 items-center">
+    <div
+      class="px-4 py-2 flex justify-start gap-4 items-center overflow-x-clip w-full"
+    >
       <img src="../../assets/svg/LOGO-APP.svg" alt="" class="w-12 h-12" />
-      <div>
+      <div class=" overflow-clip">
         <h1 class="text-sm font-bokor">ប្រព័ន្ធគ្រប់គ្រងអតីតនិស្សនិត</h1>
         <p class="text-sm text-gray-400 font-Poppins">Alumni Portal</p>
       </div>
@@ -44,10 +57,12 @@ const pages = reactive([
             class="text-gray-300 hover:text-white mb-0.5"
           >
             <div
-              class="flex items-center gap-2 hover:bg-primary/50 rounded-md px-2 py-2 transition-colors duration-300"
+              class="flex justify-start items-center gap-3 hover:bg-primary/50 rounded-md px-2.5 py-2 transition-colors duration-300 overflow-clip"
               :class="$route.path == page.route ? 'bg-primary' : ''"
             >
-              <component :is="page.icon" class="w-5 h-5 inline-block" />
+              <div class="w-5 h-5 flex justify-center items-center">
+                <component :is="page.icon" class="w-5 h-5 inline-block" />
+              </div>
               <span class="">{{ page.name }} </span>
             </div>
           </RouterLink>

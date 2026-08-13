@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import SideBarIcon from "../icons/SideBarIcon.vue";
+
+const sideBarStore = useSideBarStore();
 </script>
 
 <template>
@@ -8,6 +10,7 @@ import SideBarIcon from "../icons/SideBarIcon.vue";
   >
     <div class="flex items-center gap-2">
       <button
+        @click="sideBarStore.isSide = !sideBarStore.isSide"
         class="p-2 rounded-md hover:bg-gray-100 transition-colors duration-300 cursor-pointer"
       >
         <side-bar-icon class="w-6 h-6" />
@@ -20,9 +23,8 @@ import SideBarIcon from "../icons/SideBarIcon.vue";
     <!-- Block user name and avatar -->
     <div class="flex items-center gap-2">
       <div class="flex flex-col items-end">
-       
         <span class="text-gray-800 font-medium">Admin Name</span>
-         <p class="text-[12px] text-gray-500">Admin</p>
+        <p class="text-[12px] text-gray-500">Admin</p>
       </div>
       <div>
         <img
