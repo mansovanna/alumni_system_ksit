@@ -4,290 +4,659 @@ import SpannerIcon from "~/components/icons/SpannerIcon.vue";
 import type { MajorModel } from "~/types/major";
 
 const majorStore = useMajorStore();
-const emit = defineEmits(["close", "submitted"]);
-/* ---------- Message error ------------*/
-const messageError = ref(null);
 
-const props = defineProps<{ data: MajorModel }>();
+const props = defineProps<{
+  data: MajorModel;
+}>();
 
-const formData = ref<{
-  title: string | null;
-  body: string | null;
-  color_from: string | null;
-  color_to: string | null;
-  icon: string | null;
-}>({
-  title: props.data.title || null,
-  body: props.data.body || null,
-  color_from: props.data.color_from || "#51A2FF",
-  color_to: props.data.color_to || "#193CB8",
-  icon: props.data.icon || "user",
+const emit = defineEmits<{
+  close: [];
+  submitted: [data?: MajorModel];
+}>();
+
+/*
+|--------------------------------------------------------------------------
+| State
+|--------------------------------------------------------------------------
+*/
+
+const messageError = ref("");
+
+const isLoading = ref(false);
+
+const formData = ref({
+  title: props.data?.title ?? "",
+  body: props.data?.body ?? "",
+  color_from: props.data?.color_from ?? "#51A2FF",
+  color_to: props.data?.color_to ?? "#193CB8",
+  icon: props.data?.icon ?? "user",
 });
 
-const errors = ref<{
-  title: string | null;
-  body: string | null;
-  color_from: string | null;
-  color_to: string | null;
-  icon: string | null;
-}>({
-  title: null,
-  body: null,
-  color_from: null,
-  color_to: null,
-  icon: null,
+const errors = ref({
+  title: "",
+  body: "",
+  color_from: "",
+  color_to: "",
+  icon: "",
 });
+
+/*
+|--------------------------------------------------------------------------
+| Validation
+|--------------------------------------------------------------------------
+*/
 
 const validate = () => {
-  errors.value.title = "";
-  errors.value.body = "";
-  errors.value.color_from = "";
-  errors.value.color_to = "";
-  errors.value.color_to = "";
-  errors.value.icon = "";
+  errors.value = {
+    title: "",
+    body: "",
+    color_from: "",
+    color_to: "",
+    icon: "",
+  };
+
+  messageError.value = "";
 
   let hasError = false;
 
-  if (!formData.value.title || formData.value.title.length <= 0) {
-    errors.value.title = "Title is required!";
+  if (!formData.value.title.trim()) {
+    errors.value.title = "Title is required.";
     hasError = true;
   }
 
-  if (!formData.value.body || formData.value.body.length <= 0) {
-    errors.value.body = "Body english is required!";
+  if (!formData.value.body.trim()) {
+    errors.value.body = "Description is required.";
     hasError = true;
   }
 
-  if (!formData.value.color_from || formData.value.color_from.length <= 0) {
-    errors.value.color_from = "Color from is required!";
+  if (!formData.value.color_from) {
+    errors.value.color_from = "Start color is required.";
     hasError = true;
   }
 
-  if (!formData.value.color_to || formData.value.color_to.length <= 0) {
-    errors.value.color_to = "color to is required!";
+  if (!formData.value.color_to) {
+    errors.value.color_to = "End color is required.";
     hasError = true;
   }
 
-  if (!formData.value.icon || formData.value.icon.length <= 0) {
-    errors.value.icon = "Icon is required!";
+  if (!formData.value.icon) {
+    errors.value.icon = "Icon is required.";
     hasError = true;
   }
 
   return hasError;
 };
 
-const isLoading = ref(false);
+/*
+|--------------------------------------------------------------------------
+| Close
+|--------------------------------------------------------------------------
+*/
+
+const closeModal = () => {
+  if (!isLoading.value) {
+    emit("close");
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| Submit
+|--------------------------------------------------------------------------
+*/
 
 const submit = async () => {
-  if (!validate()) {
-    const data = new FormData();
+  if (validate()) return;
 
-    data.append("title", String(formData.value.title));
-    data.append("body", String(formData.value.body));
-    data.append("color_from", String(formData.value.color_from));
-    data.append("color_to", String(formData.value.color_to));
-    data.append("icon", String(formData.value.icon));
+  const data = new FormData();
 
-    // post data
-    isLoading.value = true;
+  data.append("title", formData.value.title.trim());
+  data.append("body", formData.value.body.trim());
+  data.append("color_from", formData.value.color_from);
+  data.append("color_to", formData.value.color_to);
+  data.append("icon", formData.value.icon);
 
-    try {
-      const res = await majorStore.updateMajor(Number(props.data.id), data);
+  isLoading.value = true;
 
-      if (majorStore.majors?.data.data) {
-        majorStore.majors.data.data = majorStore.majors?.data.data.map((e) =>
-          e.id === res.data.data.id ? res.data.data : e,
+  try {
+    const res = await majorStore.updateMajor(
+      Number(props.data.id),
+      data,
+    );
+
+    const updatedMajor = res.data?.data;
+
+    if (
+      updatedMajor &&
+      majorStore.majors?.data?.data
+    ) {
+      majorStore.majors.data.data =
+        majorStore.majors.data.data.map((item) =>
+          item.id === updatedMajor.id
+            ? updatedMajor
+            : item,
         );
-      }
-      emit("close");
-    } catch (e: any) {
-      messageError.value = e.response?.data?.errors;
-      errors.value.title = e.response?.data?.errors?.title[0];
-    } finally {
-      isLoading.value = false;
     }
+
+    emit("submitted", updatedMajor);
+    emit("close");
+  } catch (e: any) {
+    const serverErrors =
+      e?.response?.data?.errors;
+
+    messageError.value =
+      e?.response?.data?.message ||
+      "Something went wrong. Please try again.";
+
+    if (serverErrors) {
+      errors.value.title =
+        serverErrors?.title?.[0] ?? "";
+
+      errors.value.body =
+        serverErrors?.body?.[0] ?? "";
+
+      errors.value.color_from =
+        serverErrors?.color_from?.[0] ?? "";
+
+      errors.value.color_to =
+        serverErrors?.color_to?.[0] ?? "";
+
+      errors.value.icon =
+        serverErrors?.icon?.[0] ?? "";
+    }
+  } finally {
+    isLoading.value = false;
   }
 };
 </script>
 
 <template>
+  <!-- ================================================================
+       Overlay
+  ================================================================= -->
+
   <div
-    @click="$emit('close')"
-    class="w-full justify-center items-center fixed top-0 bottom-0 right-0 left-0 bg-black/20 z-50 backdrop-blur-xs flex p-4"
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm"
+    @click="closeModal"
   >
+
+    <!-- ================================================================
+         Modal
+    ================================================================= -->
+
     <div
-      class="w-3/9 max-md:w-full max-lg:w-8/9 max-xl:w-3/4 bg-white rounded-2xl border border-slate-400"
+      class="relative w-full max-w-2xl max-h-[92vh] overflow-hidden bg-white rounded-2xl shadow-2xl shadow-slate-900/20 border border-slate-200"
       @click.stop
     >
-      <div class="w-full flex justify-between items-center px-3 py-3">
-        <p class="font-Inter text-slate-500">Add New Deparment or Major</p>
-        <button
-          @click="$emit('close')"
-          class="flex justify-center items-center rounded-md hover:text-red-500 cursor-pointer"
+
+      <!-- ================================================================
+           Header
+      ================================================================= -->
+
+      <div
+        class="px-6 py-5 border-b border-slate-100 bg-white"
+      >
+
+        <div
+          class="flex items-start justify-between gap-4"
         >
-          <CloseIcon />
-        </button>
-      </div>
-      <hr class="text-slate-100" />
 
-      <form @submit.prevent="submit">
-        <div class="w-full px-4 py-2 flex flex-col gap-2">
-          <!--  -->
-          <span class="text-red-500 text-xs">{{ messageError }}</span>
           <div
-            class="w-full grid grid-cols-1 gap-3 max-md:grid-cols-1 max-lg:grid-cols-1"
+            class="flex items-center gap-3"
           >
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Name Major or Deparment(Title)<span class="text-red-500"
-                  >*</span
-                ></label
-              >
-              <div class="w-full relative">
-                <input
-                  type="text"
-                  v-model="formData.title"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter user name khmer"
-                  :class="errors.title ? 'border-red-500' : 'border-slate-300'"
-                />
-              </div>
-              <span class="text-xs text-red-500">{{ errors.title }}</span>
+
+            <!-- Icon -->
+
+            <div
+              class="size-11 shrink-0 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"
+            >
+              <SpannerIcon class="size-5" />
             </div>
 
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Body <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
-                <input
-                  type="text"
-                  v-model="formData.body"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter user name english"
-                  :class="errors.body ? 'border-red-500' : 'border-slate-300'"
-                />
-              </div>
-              <span class="text-xs text-red-500">{{ errors.body }}</span>
-            </div>
-            <!--  -->
+            <!-- Title -->
+
             <div>
-              <label class="text-xs text-slate-500"
-                >Icon <span class="text-red-500">*</span></label
+
+              <h2
+                class="text-base font-semibold text-slate-800"
               >
-              <OptionsOptionItemIcon
-                :items="icons ?? []"
-                zIndex="z-50"
-                :active="formData.icon ?? 'user'"
-                @update:active="formData.icon = $event"
-              />
+                Edit Major
+              </h2>
+
+              <p
+                class="text-xs text-slate-400 mt-1"
+              >
+                Update major or department information.
+              </p>
+
             </div>
-            <div class="w-full flex flex-col gap-2">
-              <div class="w-full flex justify-between items-center">
-                <div class="text-xs text-slate-500">Color from</div>
-                <div class="text-xs text-slate-500">Color to</div>
+
+          </div>
+
+          <!-- Close -->
+
+          <button
+            type="button"
+            @click="closeModal"
+            :disabled="isLoading"
+            class="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <CloseIcon class="size-5" />
+          </button>
+
+        </div>
+
+      </div>
+
+      <!-- ================================================================
+           Form
+      ================================================================= -->
+
+      <form
+        @submit.prevent="submit"
+        class="overflow-y-auto max-h-[calc(92vh-145px)]"
+      >
+
+        <div class="px-6 py-5 space-y-5">
+
+          <!-- ============================================================
+               Server Error
+          ============================================================= -->
+
+          <div
+            v-if="messageError"
+            class="flex items-start gap-3 p-3.5 rounded-xl border border-red-200 bg-red-50 text-red-600"
+          >
+
+            <div
+              class="size-5 shrink-0 rounded-full bg-red-100 flex items-center justify-center text-xs font-bold"
+            >
+              !
+            </div>
+
+            <p class="text-sm">
+              {{ messageError }}
+            </p>
+
+          </div>
+
+          <!-- ============================================================
+               Basic Information
+          ============================================================= -->
+
+          <div>
+
+            <div
+              class="flex items-center gap-2 mb-3"
+            >
+
+              <div
+                class="size-1.5 rounded-full bg-blue-500"
+              ></div>
+
+              <h3
+                class="text-sm font-semibold text-slate-700"
+              >
+                Basic Information
+              </h3>
+
+            </div>
+
+            <div
+              class="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+
+              <!-- Title -->
+
+              <div class="md:col-span-2">
+
+                <label
+                  class="block text-xs font-medium text-slate-600 mb-1.5"
+                >
+                  Major / Department Name
+                  <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                  v-model="formData.title"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="e.g. Computer Science"
+                  class="w-full h-11 px-3.5 bg-slate-50 border rounded-xl text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-all focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  :class="
+                    errors.title
+                      ? 'border-red-400 focus:border-red-400'
+                      : 'border-slate-200 focus:border-blue-500'
+                  "
+                />
+
+                <p
+                  v-if="errors.title"
+                  class="mt-1.5 text-xs text-red-500"
+                >
+                  {{ errors.title }}
+                </p>
+
               </div>
 
-              <!-- Bar show color -->
-              <div class="w-full relative">
+              <!-- Body -->
+
+              <div class="md:col-span-2">
+
+                <label
+                  class="block text-xs font-medium text-slate-600 mb-1.5"
+                >
+                  Description
+                  <span class="text-red-500">*</span>
+                </label>
+
+                <textarea
+                  v-model="formData.body"
+                  rows="3"
+                  placeholder="Enter a short description..."
+                  class="w-full px-3.5 py-3 bg-slate-50 border rounded-xl text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none transition-all focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                  :class="
+                    errors.body
+                      ? 'border-red-400 focus:border-red-400'
+                      : 'border-slate-200 focus:border-blue-500'
+                  "
+                ></textarea>
+
+                <p
+                  v-if="errors.body"
+                  class="mt-1.5 text-xs text-red-500"
+                >
+                  {{ errors.body }}
+                </p>
+
+              </div>
+
+              <!-- Icon -->
+
+              <div class="md:col-span-2">
+
+                <label
+                  class="block text-xs font-medium text-slate-600 mb-1.5"
+                >
+                  Icon
+                  <span class="text-red-500">*</span>
+                </label>
+
                 <div
-                  class="w-full p-5 rounded-md border-slate-200 border"
+                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50"
+                >
+
+                  <OptionsOptionItemIcon
+                    :items="icons ?? []"
+                    zIndex="z-[120]"
+                    :active="formData.icon"
+                    @update:active="formData.icon = $event"
+                  />
+
+                </div>
+
+                <p
+                  v-if="errors.icon"
+                  class="mt-1.5 text-xs text-red-500"
+                >
+                  {{ errors.icon }}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- ============================================================
+               Gradient Colors
+          ============================================================= -->
+
+          <div>
+
+            <div
+              class="flex items-center justify-between mb-3"
+            >
+
+              <div
+                class="flex items-center gap-2"
+              >
+
+                <div
+                  class="size-1.5 rounded-full bg-blue-500"
+                ></div>
+
+                <h3
+                  class="text-sm font-semibold text-slate-700"
+                >
+                  Gradient Colors
+                </h3>
+
+              </div>
+
+              <span
+                class="text-xs text-slate-400"
+              >
+                Click the color to change
+              </span>
+
+            </div>
+
+            <!-- Preview -->
+
+            <div
+              class="relative h-24 rounded-xl overflow-hidden border border-slate-200 shadow-inner"
+              :style="{
+                backgroundImage: `linear-gradient(110deg, ${formData.color_from}, ${formData.color_to})`,
+              }"
+            >
+
+              <!-- Overlay -->
+
+              <div
+                class="absolute inset-0 bg-black/5"
+              ></div>
+
+              <!-- Preview label -->
+
+              <div
+                class="absolute inset-0 flex items-center justify-center"
+              >
+
+                <div
+                  class="px-4 py-2 rounded-lg bg-white/15 backdrop-blur-md border border-white/20 text-white text-sm font-medium shadow-sm"
+                >
+                  Gradient Preview
+                </div>
+
+              </div>
+
+              <!-- Start Color -->
+
+              <label
+                class="absolute left-3 top-3 cursor-pointer group"
+              >
+
+                <div
+                  class="size-9 rounded-lg border-2 border-white shadow-lg ring-1 ring-black/10 group-hover:scale-105 transition-transform"
                   :style="{
-                    backgroundImage: `linear-gradient(to right, ${formData.color_from}, ${formData.color_to})`,
+                    backgroundColor: formData.color_from,
                   }"
                 ></div>
 
-                <!--  -->
+                <input
+                  v-model="formData.color_from"
+                  type="color"
+                  class="sr-only"
+                />
+
+              </label>
+
+              <!-- End Color -->
+
+              <label
+                class="absolute right-3 top-3 cursor-pointer group"
+              >
+
                 <div
-                  class="w-full flex justify-between items-center absolute top-0 bottom-0 right-0 left-0"
-                >
-                  <div class="flex flex-col justify-center items-center gap-1">
-                    <label>
-                      <div
-                        class="size-10 rounded-full border-2 border-white cursor-pointer"
-                        :style="`background-color:${formData.color_from} ;`"
-                      ></div>
-                      <input
-                        hidden
-                        type="color"
-                        v-model="formData.color_from"
-                        class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        placeholder="Enter user name english"
-                        :class="
-                          errors.color_from
-                            ? 'border-red-500'
-                            : 'border-slate-300'
-                        "
-                      />
-                    </label>
+                  class="size-9 rounded-lg border-2 border-white shadow-lg ring-1 ring-black/10 group-hover:scale-105 transition-transform"
+                  :style="{
+                    backgroundColor: formData.color_to,
+                  }"
+                ></div>
 
-                    <span class="text-xs text-red-500">{{
-                      errors.color_from
-                    }}</span>
-                  </div>
+                <input
+                  v-model="formData.color_to"
+                  type="color"
+                  class="sr-only"
+                />
 
-                  <div class="flex flex-col justify-center items-center gap-1">
-                    <label>
-                      <div
-                        class="size-10 rounded-full border-2 border-white cursor-pointer"
-                        :style="`background-color:${formData.color_to} ;`"
-                      ></div>
-                      <input
-                        hidden
-                        type="color"
-                        v-model="formData.color_to"
-                        class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        placeholder="Enter user name english"
-                        :class="
-                          errors.color_to
-                            ? 'border-red-500'
-                            : 'border-slate-300'
-                        "
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <!-- End Bar shor color -->
+              </label>
 
-              <div class="w-full flex justify-between items-center">
-                <span class="text-xs text-red-500">{{
-                  errors.color_from
-                }}</span>
-                <span class="text-xs text-red-500">{{ errors.color_to }}</span>
-              </div>
             </div>
 
-            <!--  -->
+            <!-- Color Inputs -->
 
-            <!-- ------------- -->
-
-            <!--  -->
-          </div>
-
-          <div class="pb-2 flex items-center justify-end gap-6 mt-4">
-            <button
-              @click="$emit('close')"
-              type="button"
-              class="w-1/8 p-2 bg-red-600 text-white text-sm hover:bg-red-700 cursor-pointer rounded-lg min-w-20"
+            <div
+              class="grid grid-cols-2 gap-3 mt-3"
             >
-              Cancel
-            </button>
 
-            <button
-              type="submit"
-              :disabled="isLoading"
-              class="w-1/8 flex justify-center disabled:bg-secondary items-center text-sm bg-primary text-white rounded-lg p-2 cursor-pointer hover:bg-primary/80 transition-colors"
-            >
-              <span v-if="!isLoading">Save</span>
-              <div v-else class="font-Inter flex justify-center items-end">
-                <span class="line-clamp-1">Please wating</span>
-                <SpannerIcon />
+              <!-- From -->
+
+              <div>
+
+                <label
+                  class="block text-xs text-slate-500 mb-1.5"
+                >
+                  Start Color
+                </label>
+
+                <div class="relative">
+
+                  <span
+                    class="absolute left-3 top-1/2 -translate-y-1/2 size-4 rounded-full border border-slate-200"
+                    :style="{
+                      backgroundColor:
+                        formData.color_from,
+                    }"
+                  ></span>
+
+                  <input
+                    v-model="formData.color_from"
+                    type="text"
+                    maxlength="7"
+                    class="w-full h-10 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono uppercase text-slate-600 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+
+                </div>
+
+                <p
+                  v-if="errors.color_from"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.color_from }}
+                </p>
+
               </div>
-            </button>
+
+              <!-- To -->
+
+              <div>
+
+                <label
+                  class="block text-xs text-slate-500 mb-1.5"
+                >
+                  End Color
+                </label>
+
+                <div class="relative">
+
+                  <span
+                    class="absolute left-3 top-1/2 -translate-y-1/2 size-4 rounded-full border border-slate-200"
+                    :style="{
+                      backgroundColor:
+                        formData.color_to,
+                    }"
+                  ></span>
+
+                  <input
+                    v-model="formData.color_to"
+                    type="text"
+                    maxlength="7"
+                    class="w-full h-10 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono uppercase text-slate-600 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  />
+
+                </div>
+
+                <p
+                  v-if="errors.color_to"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.color_to }}
+                </p>
+
+              </div>
+
+            </div>
+
           </div>
+
         </div>
+
+        <!-- ================================================================
+             Footer
+        ================================================================= -->
+
+        <div
+          class="sticky bottom-0 px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-end gap-3"
+        >
+
+          <!-- Cancel -->
+
+          <button
+            type="button"
+            @click="closeModal"
+            :disabled="isLoading"
+            class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+
+          <!-- Update -->
+
+          <button
+            type="submit"
+            :disabled="isLoading"
+            class="min-w-32 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium flex items-center justify-center gap-2 shadow-sm shadow-blue-600/20 hover:bg-blue-700 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+
+            <template v-if="!isLoading">
+
+              <span>
+                Update Major
+              </span>
+
+            </template>
+
+            <template v-else>
+
+              <SpannerIcon
+                class="size-4 animate-spin"
+              />
+
+              <span>
+                Updating...
+              </span>
+
+            </template>
+
+          </button>
+
+        </div>
+
       </form>
+
     </div>
+
   </div>
 </template>

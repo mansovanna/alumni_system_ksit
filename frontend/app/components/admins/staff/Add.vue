@@ -5,316 +5,529 @@ import OffEyeIcon from "~/components/icons/OffEyeIcon.vue";
 import SpannerIcon from "~/components/icons/SpannerIcon.vue";
 
 const staffStore = useStaffStore();
+
 const emit = defineEmits(["close", "submitted"]);
-/* ---------- Message error ------------*/
-const messageError = ref(null);
 
-const formData = ref<{
-  nameKhmer: string | null;
-  nameEnglish: string | null;
-  login: string | null;
-  role: string | null;
-  password: string | null;
-  password_confirm: string | null;
-}>({
-  nameKhmer: null,
-  nameEnglish: null,
-  login: null,
-  role: null,
-  password: null,
-  password_confirm: null,
+const messageError = ref<string | null>(null);
+
+const formData = ref({
+  nameKhmer: null as string | null,
+  nameEnglish: null as string | null,
+  login: null as string | null,
+  role: null as string | null,
+  password: null as string | null,
+  password_confirm: null as string | null,
 });
 
-const errors = ref<{
-  nameKhmer: string | null;
-  nameEnglish: string | null;
-  login: string | null;
-  role: string | null;
-  password: string | null;
-  password_confirm: string | null;
-}>({
-  nameKhmer: null,
-  nameEnglish: null,
-  login: null,
-  role: null,
-  password: null,
-  password_confirm: null,
+const errors = ref({
+  nameKhmer: null as string | null,
+  nameEnglish: null as string | null,
+  login: null as string | null,
+  role: null as string | null,
+  password: null as string | null,
+  password_confirm: null as string | null,
 });
+
+const isLoading = ref(false);
+const isShowPassword = ref(false);
 
 const validate = () => {
-  errors.value.nameKhmer = "";
-  errors.value.nameEnglish = "";
-  errors.value.role = "";
-  errors.value.login = "";
-  errors.value.password = "";
-  errors.value.password_confirm = "";
+  errors.value = {
+    nameKhmer: "",
+    nameEnglish: "",
+    login: "",
+    role: "",
+    password: "",
+    password_confirm: "",
+  };
 
   let hasError = false;
 
-  if (!formData.value.nameKhmer || formData.value.nameKhmer.length <= 0) {
-    errors.value.nameKhmer = "Name Khmer is required!";
+  if (!formData.value.nameKhmer?.trim()) {
+    errors.value.nameKhmer = "Name Khmer is required.";
     hasError = true;
   }
 
-  if (!formData.value.nameEnglish || formData.value.nameEnglish.length <= 0) {
-    errors.value.nameEnglish = "Name english is required!";
+  if (!formData.value.nameEnglish?.trim()) {
+    errors.value.nameEnglish = "Name English is required.";
     hasError = true;
   }
 
-  if (!formData.value.login || formData.value.login.length <= 0) {
-    errors.value.login = "Email or Mobile is required!";
+  if (!formData.value.login?.trim()) {
+    errors.value.login = "Email is required.";
     hasError = true;
   }
 
-  if (!formData.value.password || formData.value.password.length <= 0) {
-    errors.value.password = "Password is required!";
+  if (!formData.value.role) {
+    errors.value.role = "Please select a role.";
     hasError = true;
   }
 
-  if (
-    !formData.value.password_confirm ||
-    formData.value.password_confirm.length <= 0
+  if (!formData.value.password) {
+    errors.value.password = "Password is required.";
+    hasError = true;
+  } else if (formData.value.password.length < 8) {
+    errors.value.password = "Password must be at least 8 characters.";
+    hasError = true;
+  }
+
+  if (!formData.value.password_confirm) {
+    errors.value.password_confirm =
+      "Password confirmation is required.";
+    hasError = true;
+  } else if (
+    formData.value.password !==
+    formData.value.password_confirm
   ) {
-    errors.value.password_confirm = "Password Confirm is required!";
-    hasError = true;
-  } else if (formData.value.password != formData.value.password_confirm) {
-    errors.value.password_confirm = "Password not much!";
+    errors.value.password_confirm = "Passwords do not match.";
     hasError = true;
   }
 
   return hasError;
 };
 
-const isLoading = ref(false);
-
 const submit = async () => {
-  if (!validate()) {
-    const data = new FormData();
+  if (validate()) return;
 
-    data.append("name_khmer", String(formData.value.nameKhmer));
-    data.append("name_english", String(formData.value.nameEnglish));
-    data.append("login", String(formData.value.login));
-    data.append("role", String(formData.value.role));
-    data.append("password", String(formData.value.password));
-    data.append(
-      "password_confirmation",
-      String(formData.value.password_confirm),
-    );
+  const data = new FormData();
 
-    // post data
-    isLoading.value = true;
+  data.append("name_khmer", String(formData.value.nameKhmer));
+  data.append("name_english", String(formData.value.nameEnglish));
+  data.append("login", String(formData.value.login));
+  data.append("role", String(formData.value.role));
+  data.append("password", String(formData.value.password));
+  data.append(
+    "password_confirmation",
+    String(formData.value.password_confirm),
+  );
 
-    try {
-      const res = await staffStore.addStaff(data);
+  isLoading.value = true;
+  messageError.value = null;
 
-      staffStore.data?.data?.data.unshift(res.data?.data);
-      emit("close");
-    } catch (e: any) {
-      messageError.value = e.response?.data?.errors;
-      errors.value.login = e.response?.data?.errors?.login[0];
-    } finally {
-      isLoading.value = false;
+  try {
+    const res = await staffStore.addStaff(data);
+
+    staffStore.data?.data?.data.unshift(res.data?.data);
+
+    emit("submitted", res.data?.data);
+    emit("close");
+  } catch (e: any) {
+    messageError.value =
+      e.response?.data?.message ??
+      "Unable to create staff account.";
+
+    const serverErrors = e.response?.data?.errors;
+
+    if (serverErrors) {
+      if (serverErrors.name_khmer?.[0])
+        errors.value.nameKhmer = serverErrors.name_khmer[0];
+
+      if (serverErrors.name_english?.[0])
+        errors.value.nameEnglish = serverErrors.name_english[0];
+
+      if (serverErrors.login?.[0])
+        errors.value.login = serverErrors.login[0];
+
+      if (serverErrors.role?.[0])
+        errors.value.role = serverErrors.role[0];
+
+      if (serverErrors.password?.[0])
+        errors.value.password = serverErrors.password[0];
     }
+  } finally {
+    isLoading.value = false;
   }
 };
-
-const isShowPassword = ref(false);
 </script>
 
 <template>
+  <!-- Overlay -->
+
   <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4"
     @click="$emit('close')"
-    class="w-full justify-center items-center fixed top-0 bottom-0 right-0 left-0 bg-black/20 z-50 backdrop-blur-xs flex p-4"
   >
+
+    <!-- Modal -->
+
     <div
-      class="w-3/5 max-md:w-full max-lg:w-8/9 max-xl:w-3/4 bg-white rounded-2xl border border-slate-400"
+      class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
       @click.stop
     >
-      <div class="w-full flex justify-between items-center px-3 py-3">
-        <p class="font-Inter text-slate-500">Add New Staff</p>
-        <button
-          @click="$emit('close')"
-          class="flex justify-center items-center rounded-md hover:text-red-500 cursor-pointer"
-        >
-          <CloseIcon />
-        </button>
-      </div>
-      <hr class="text-slate-100" />
 
-      <form @submit.prevent="submit">
-        <div class="w-full px-4 py-2 flex flex-col gap-2">
-          <!--  -->
-          <span class="text-red-500 text-xs">{{ messageError }}</span>
+      <!-- ============================================================
+           HEADER
+      ============================================================= -->
+
+      <div
+        class="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
+      >
+
+        <div class="flex items-center gap-3">
+
           <div
-            class="w-full grid grid-cols-2 gap-3 max-md:grid-cols-1 max-lg:grid-cols-2"
+            class="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"
           >
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Name Khmer <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
+            <SpannerIcon class="size-5" />
+          </div>
+
+          <div>
+
+            <h2 class="text-base font-semibold text-slate-800">
+              Add New Staff
+            </h2>
+
+            <p class="text-xs text-slate-400 mt-0.5">
+              Create a new staff account
+            </p>
+
+          </div>
+
+        </div>
+
+        <button
+          type="button"
+          @click="$emit('close')"
+          class="size-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition cursor-pointer"
+        >
+          <CloseIcon class="size-5" />
+        </button>
+
+      </div>
+
+      <!-- ============================================================
+           FORM
+      ============================================================= -->
+
+      <form
+        @submit.prevent="submit"
+        class="max-h-[calc(100vh-160px)] overflow-y-auto"
+      >
+
+        <div class="px-6 py-5 space-y-5">
+
+          <!-- Error -->
+
+          <div
+            v-if="messageError"
+            class="px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600"
+          >
+            {{ messageError }}
+          </div>
+
+          <!-- Account Information -->
+
+          <div>
+
+            <div class="mb-3">
+              <h3 class="text-sm font-semibold text-slate-700">
+                Staff Information
+              </h3>
+
+              <p class="text-xs text-slate-400 mt-0.5">
+                Enter the staff member's basic information.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <!-- Khmer -->
+
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  Name Khmer
+                  <span class="text-red-500">*</span>
+                </label>
+
                 <input
-                  type="text"
                   v-model="formData.nameKhmer"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter user name khmer"
+                  type="text"
+                  placeholder="Enter Khmer name"
+                  class="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none transition focus:ring-4 focus:ring-primary/10 focus:border-primary"
                   :class="
-                    errors.nameKhmer ? 'border-red-500' : 'border-slate-300'
+                    errors.nameKhmer
+                      ? 'border-red-400'
+                      : 'border-slate-200'
                   "
                 />
-              </div>
-              <span class="text-xs text-red-500">{{ errors.nameKhmer }}</span>
-            </div>
 
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Name English <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
+                <p
+                  v-if="errors.nameKhmer"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.nameKhmer }}
+                </p>
+              </div>
+
+              <!-- English -->
+
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  Name English
+                  <span class="text-red-500">*</span>
+                </label>
+
                 <input
-                  type="text"
                   v-model="formData.nameEnglish"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter user name english"
-                  :class="
-                    errors.nameEnglish ? 'border-red-500' : 'border-slate-300'
-                  "
-                />
-              </div>
-              <span class="text-xs text-red-500">{{ errors.nameEnglish }}</span>
-            </div>
-            <!--  -->
-
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Email <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
-                <input
                   type="text"
-                  v-model="formData.login"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter user name english"
+                  placeholder="Enter English name"
+                  class="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none transition focus:ring-4 focus:ring-primary/10 focus:border-primary"
                   :class="
-                    errors.nameEnglish ? 'border-red-500' : 'border-slate-300'
+                    errors.nameEnglish
+                      ? 'border-red-400'
+                      : 'border-slate-200'
                   "
                 />
+
+                <p
+                  v-if="errors.nameEnglish"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.nameEnglish }}
+                </p>
               </div>
-              <span class="text-xs text-red-500">{{ errors.login }}</span>
-            </div>
 
-            <!--  -->
+              <!-- Email -->
 
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Role <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  Email
+                  <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                  v-model="formData.login"
+                  type="email"
+                  placeholder="staff@example.com"
+                  class="w-full h-11 px-3 rounded-xl border bg-white text-sm outline-none transition focus:ring-4 focus:ring-primary/10 focus:border-primary"
+                  :class="
+                    errors.login
+                      ? 'border-red-400'
+                      : 'border-slate-200'
+                  "
+                />
+
+                <p
+                  v-if="errors.login"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.login }}
+                </p>
+              </div>
+
+              <!-- Role -->
+
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  Role
+                  <span class="text-red-500">*</span>
+                </label>
+
                 <select
                   v-model="formData.role"
-                  class="w-full px-2 py-2 border capitalize placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  :class="errors.role ? 'border-red-500' : 'border-slate-300'"
+                  class="w-full h-11 px-3 rounded-xl border bg-white text-sm capitalize outline-none transition focus:ring-4 focus:ring-primary/10 focus:border-primary"
+                  :class="
+                    errors.role
+                      ? 'border-red-400'
+                      : 'border-slate-200'
+                  "
                 >
-                  <option value="" disabled>សូមជ្រើសរើស</option>
-                  <option value="admin">admin</option>
-                  <option value="staff">staff</option>
+                  <option :value="null" disabled>
+                    Select role
+                  </option>
+
+                  <option value="admin">
+                    Admin
+                  </option>
+
+                  <option value="staff">
+                    Staff
+                  </option>
                 </select>
-              </div>
-              <span class="text-xs text-red-500">{{ errors.role }}</span>
-            </div>
 
-            <!-- ------------- -->
-
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Password <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
-                <input
-                  :type="isShowPassword ? 'text' : 'password'"
-                  v-model="formData.password"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Create Password"
-                  :class="
-                    errors.password ? 'border-red-500' : 'border-slate-300'
-                  "
-                />
-
-                <div
-                  class="absolute top-0 bottom-0 flex justify-center items-center right-0"
+                <p
+                  v-if="errors.role"
+                  class="mt-1 text-xs text-red-500"
                 >
-                  <button
-                    type="button"
-                    @click="isShowPassword = !isShowPassword"
-                    class="p-2 cursor-pointer hover:text-red-500"
-                  >
-                    <component :is="isShowPassword ? OffEyeIcon : EyeIcon" />
-                  </button>
-                </div>
+                  {{ errors.role }}
+                </p>
               </div>
-              <span class="text-xs text-red-500">{{ errors.password }}</span>
+
             </div>
 
-            <div class="w-full">
-              <label class="text-xs text-slate-500"
-                >Password Confirm <span class="text-red-500">*</span></label
-              >
-              <div class="w-full relative">
-                <input
-                  :type="isShowPassword ? 'text' : 'password'"
-                  v-model="formData.password_confirm"
-                  class="w-full px-2 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Confirm Password"
-                  :class="
-                    errors.password_confirm
-                      ? 'border-red-500'
-                      : 'border-slate-300'
-                  "
-                />
-
-                <div
-                  class="absolute top-0 bottom-0 flex justify-center items-center right-0"
-                >
-                  <button
-                    type="button"
-                    @click="isShowPassword = !isShowPassword"
-                    class="p-2 cursor-pointer hover:text-red-500"
-                  >
-                    <component :is="isShowPassword ? OffEyeIcon : EyeIcon" />
-                  </button>
-                </div>
-              </div>
-              <span class="text-xs text-red-500">{{
-                errors.password_confirm
-              }}</span>
-            </div>
-
-            <!--  -->
           </div>
 
-          <div class="pb-2 flex items-center justify-end gap-6 mt-4">
-            <button
-              @click="$emit('close')"
-              type="button"
-              class="w-1/8 p-2 bg-red-600 text-white text-sm hover:bg-red-700 cursor-pointer rounded-lg min-w-20"
-            >
-              Cancel
-            </button>
+          <!-- Security -->
 
-            <button
-              type="submit"
-              :disabled="isLoading"
-              class="w-1/8 flex justify-center disabled:bg-secondary items-center text-sm bg-primary text-white rounded-lg p-2 cursor-pointer hover:bg-primary/80 transition-colors"
-            >
-              <span v-if="!isLoading">Save</span>
-              <div v-else class="font-Inter flex justify-center items-end">
-                <span class="line-clamp-1">Please wating</span>
-                <SpannerIcon />
+          <div>
+
+            <div class="mb-3">
+              <h3 class="text-sm font-semibold text-slate-700">
+                Security
+              </h3>
+
+              <p class="text-xs text-slate-400 mt-0.5">
+                Create a secure password for this account.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <!-- Password -->
+
+              <div>
+
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  Password
+                  <span class="text-red-500">*</span>
+                </label>
+
+                <div class="relative">
+
+                  <input
+                    v-model="formData.password"
+                    :type="
+                      isShowPassword
+                        ? 'text'
+                        : 'password'
+                    "
+                    placeholder="Create password"
+                    class="w-full h-11 px-3 pr-11 rounded-xl border bg-white text-sm outline-none transition focus:ring-4 focus:ring-primary/10 focus:border-primary"
+                    :class="
+                      errors.password
+                        ? 'border-red-400'
+                        : 'border-slate-200'
+                    "
+                  />
+
+                  <button
+                    type="button"
+                    @click="
+                      isShowPassword =
+                        !isShowPassword
+                    "
+                    class="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-slate-400 hover:text-primary cursor-pointer"
+                  >
+                    <component
+                      :is="
+                        isShowPassword
+                          ? OffEyeIcon
+                          : EyeIcon
+                      "
+                    />
+                  </button>
+
+                </div>
+
+                <p
+                  v-if="errors.password"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.password }}
+                </p>
+
               </div>
-            </button>
+
+              <!-- Confirm -->
+
+              <div>
+
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  Confirm Password
+                  <span class="text-red-500">*</span>
+                </label>
+
+                <div class="relative">
+
+                  <input
+                    v-model="formData.password_confirm"
+                    :type="
+                      isShowPassword
+                        ? 'text'
+                        : 'password'
+                    "
+                    placeholder="Confirm password"
+                    class="w-full h-11 px-3 pr-11 rounded-xl border bg-white text-sm outline-none transition focus:ring-4 focus:ring-primary/10 focus:border-primary"
+                    :class="
+                      errors.password_confirm
+                        ? 'border-red-400'
+                        : 'border-slate-200'
+                    "
+                  />
+
+                  <button
+                    type="button"
+                    @click="
+                      isShowPassword =
+                        !isShowPassword
+                    "
+                    class="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-slate-400 hover:text-primary cursor-pointer"
+                  >
+                    <component
+                      :is="
+                        isShowPassword
+                          ? OffEyeIcon
+                          : EyeIcon
+                      "
+                    />
+                  </button>
+
+                </div>
+
+                <p
+                  v-if="errors.password_confirm"
+                  class="mt-1 text-xs text-red-500"
+                >
+                  {{ errors.password_confirm }}
+                </p>
+
+              </div>
+
+            </div>
+
           </div>
+
         </div>
+
+        <!-- ============================================================
+             FOOTER
+        ============================================================= -->
+
+        <div
+          class="px-6 py-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-end gap-3"
+        >
+
+          <button
+            type="button"
+            @click="$emit('close')"
+            class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            :disabled="isLoading"
+            class="min-w-28 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-medium inline-flex items-center justify-center gap-2 hover:bg-primary/90 transition disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+          >
+
+            <template v-if="!isLoading">
+              <AddIcon class="size-4" />
+              <span>Create Staff</span>
+            </template>
+
+            <template v-else>
+              <SpannerIcon class="size-4 animate-spin" />
+              <span>Creating...</span>
+            </template>
+
+          </button>
+
+        </div>
+
       </form>
+
     </div>
+
   </div>
 </template>

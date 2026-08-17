@@ -9,7 +9,7 @@ export default defineNuxtRouteMiddleware(async () => {
     if (authStore.user?.role == "alumni") {
       return navigateTo("/");
     } else {
-      return navigateTo("/admin");
+      return navigateTo("/admins");
     }
   }
 });

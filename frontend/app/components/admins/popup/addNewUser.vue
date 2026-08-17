@@ -1,84 +1,127 @@
 <script setup lang="ts">
+import { onBeforeUnmount, reactive, ref } from "vue";
+
 import CloseIcon from "~/components/icons/CloseIcon.vue";
 import EyeIcon from "~/components/icons/EyeIcon.vue";
 import ImageIcon from "~/components/icons/ImageIcon.vue";
 import OffEyeIcon from "~/components/icons/OffEyeIcon.vue";
 import SpannerIcon from "~/components/icons/SpannerIcon.vue";
 
-/* -------------------------------------------------- */
 const userStore = useUserStore();
-
-/* -------------------------------------------------- */
-/* Options                                              */
-/* -------------------------------------------------- */
-const genders = reactive(["male", "female"]);
-
-
 const majors = useMajorStore();
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const emit = defineEmits<{
+  close: [];
+  submitted: [data: unknown];
+}>();
 
 /* -------------------------------------------------- */
-/* Form State                                           */
+/* Options                                             */
 /* -------------------------------------------------- */
+
+const genders = ["male", "female"];
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
+/* -------------------------------------------------- */
+/* Form Type                                           */
+/* -------------------------------------------------- */
+
 type FormData = {
-  name_khmer: string | null;
-  name_english: string | null;
-  gender: string | null;
-  dateOfBirth: string | null;
-  phone: string | null;
-  major: string | null;
-  year: string | null;
-  status: string | null;
-  address: string | null;
-  work_address: string | null;
+  name_khmer: string;
+  name_english: string;
+  gender: string;
+  dateOfBirth: string;
+  phone: string;
+  major: string;
+  year: string;
+  status: string;
+  address: string;
+  work_address: string;
   image: File | null;
-  password: string | null;
-  password_confirmation: string | null;
+  password: string;
+  password_confirmation: string;
 };
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
+/* -------------------------------------------------- */
+/* Form State                                          */
+/* -------------------------------------------------- */
+
 const formData = ref<FormData>({
-  name_khmer: null,
-  name_english: null,
-  gender: null,
-  dateOfBirth: null,
-  phone: null,
-  major: null,
-  year: null,
-  status: null,
-  address: null,
-  work_address: null,
+  name_khmer: "",
+  name_english: "",
+  gender: "",
+  dateOfBirth: "",
+  phone: "",
+  major: "",
+  year: "",
+  status: "",
+  address: "",
+  work_address: "",
   image: null,
-  password: null,
-  password_confirmation: null,
+  password: "",
+  password_confirmation: "",
 });
 
 const errors = ref<FormErrors>({});
+const message = ref("");
+const isLoading = ref(false);
+
 const imagePreview = ref<string | null>(null);
+const imageInput = ref<HTMLInputElement | null>(null);
+
+const majorActive = ref<string | null>(null);
+const isPassword = ref(false);
 
 /* -------------------------------------------------- */
-/* Image Upload                                         */
+/* Image                                               */
 /* -------------------------------------------------- */
+
+const openImagePicker = () => {
+  imageInput.value?.click();
+};
+
 const handleImageChange = (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+
   if (!file) return;
 
+  errors.value.image = undefined;
+
   if (file.size > MAX_IMAGE_SIZE) {
-    errors.value.image = "រូបភាពមិនអាចធំជាង 5MB បានទេ!";
-    (event.target as HTMLInputElement).value = "";
+    errors.value.image = "Image size cannot be larger than 5MB.";
+    input.value = "";
     return;
   }
 
-  // Revoke the previous object URL to avoid a memory leak
+  if (!file.type.startsWith("image/")) {
+    errors.value.image = "Please select a valid image.";
+    input.value = "";
+    return;
+  }
+
   if (imagePreview.value) {
     URL.revokeObjectURL(imagePreview.value);
   }
 
-  errors.value.image = undefined;
   formData.value.image = file;
   imagePreview.value = URL.createObjectURL(file);
+};
+
+const removeImage = () => {
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value);
+  }
+
+  imagePreview.value = null;
+  formData.value.image = null;
+
+  if (imageInput.value) {
+    imageInput.value.value = "";
+  }
 };
 
 onBeforeUnmount(() => {
@@ -88,36 +131,108 @@ onBeforeUnmount(() => {
 });
 
 /* -------------------------------------------------- */
-/* Validation                                           */
+/* Major                                               */
 /* -------------------------------------------------- */
-const requiredFields: { key: keyof FormErrors; label: string }[] = [
-  { key: "name_khmer", label: "User name is required!" },
-  { key: "name_english", label: "User name is required!" },
-  { key: "gender", label: "Gender is required!" },
-  { key: "dateOfBirth", label: "Date of birth is required!" },
-  { key: "phone", label: "Mobile phone is required!" },
-  { key: "major", label: "Major is required!" },
-  { key: "year", label: "Last year is required!" },
-  { key: "status", label: "Status work is required!" },
-  { key: "address", label: "Address work is required!" },
-  { key: "password", label: "Password is required!" },
-  { key: "password_confirmation", label: "password_confirmation is required!" },
-];
+
+const handleMajor = (data: any) => {
+  if (!data) return;
+
+  formData.value.major = String(data.id);
+  majorActive.value = data.title;
+};
+
+/* -------------------------------------------------- */
+/* Password                                            */
+/* -------------------------------------------------- */
+
+const togglePassword = () => {
+  isPassword.value = !isPassword.value;
+};
+
+/* -------------------------------------------------- */
+/* Validation                                          */
+/* -------------------------------------------------- */
 
 const validate = () => {
   errors.value = {};
+  message.value = "";
+
   let hasError = false;
+
+  const requiredFields: {
+    key: keyof FormData;
+    message: string;
+  }[] = [
+    {
+      key: "name_khmer",
+      message: "Khmer name is required.",
+    },
+    {
+      key: "name_english",
+      message: "English name is required.",
+    },
+    {
+      key: "gender",
+      message: "Gender is required.",
+    },
+    {
+      key: "dateOfBirth",
+      message: "Date of birth is required.",
+    },
+    {
+      key: "phone",
+      message: "Mobile phone is required.",
+    },
+    {
+      key: "major",
+      message: "Major is required.",
+    },
+    {
+      key: "year",
+      message: "Graduation year is required.",
+    },
+    {
+      key: "status",
+      message: "Work status is required.",
+    },
+    {
+      key: "address",
+      message: "Address is required.",
+    },
+    {
+      key: "password",
+      message: "Password is required.",
+    },
+    {
+      key: "password_confirmation",
+      message: "Password confirmation is required.",
+    },
+  ];
 
   for (const field of requiredFields) {
     const value = formData.value[field.key];
-    if (!value || String(value).trim().length === 0) {
-      errors.value[field.key] = field.label;
+
+    if (
+      value === null ||
+      value === undefined ||
+      String(value).trim() === ""
+    ) {
+      errors.value[field.key] = field.message;
       hasError = true;
     }
   }
 
-  if (formData.value.password !== formData.value.password_confirmation) {
-    errors.value["password_confirmation"] = "Password not much!";
+  if (
+    formData.value.password &&
+    formData.value.password_confirmation &&
+    formData.value.password !== formData.value.password_confirmation
+  ) {
+    errors.value.password_confirmation = "Passwords do not match.";
+    hasError = true;
+  }
+
+  if (formData.value.password && formData.value.password.length < 8) {
+    errors.value.password = "Password must be at least 8 characters.";
     hasError = true;
   }
 
@@ -125,45 +240,28 @@ const validate = () => {
 };
 
 /* -------------------------------------------------- */
-/* Submit                                               */
+/* Submit                                              */
 /* -------------------------------------------------- */
-const emit = defineEmits(["close", "submitted"]);
 
-const majorActive = ref(null);
-const handleMajor = (data: any) => {
-  formData.value.major = data.id;
-  majorActive.value = data.title;
-};
-
-const isPassword = ref(false);
-
-const handlePassword = () => {
-  isPassword.value = !isPassword.value;
-};
-
-const isLoading = ref(false);
-const message = ref("");
 const submit = async () => {
   if (validate()) return;
 
-  // emit("submitted", formData.value);
-
   const data = new FormData();
 
-  data.append("name_khmer", String(formData.value.name_khmer));
-  data.append("name_english", String(formData.value.name_english));
-  data.append("gender", String(formData.value.gender));
-  data.append("date_of_birth", String(formData.value.dateOfBirth));
-  data.append("major_id", String(formData.value.major));
-  data.append("address", String(formData.value.address));
-  data.append("work", String(formData.value.status));
-  data.append("last_year", String(formData.value.year));
-  data.append("mobile", String(formData.value.phone));
-  data.append("work_address", String(formData.value.work_address));
-  data.append("password", String(formData.value.password));
+  data.append("name_khmer", formData.value.name_khmer);
+  data.append("name_english", formData.value.name_english);
+  data.append("gender", formData.value.gender);
+  data.append("date_of_birth", formData.value.dateOfBirth);
+  data.append("major_id", formData.value.major);
+  data.append("address", formData.value.address);
+  data.append("work", formData.value.status);
+  data.append("last_year", formData.value.year);
+  data.append("mobile", formData.value.phone);
+  data.append("work_address", formData.value.work_address);
+  data.append("password", formData.value.password);
   data.append(
     "password_confirmation",
-    String(formData.value.password_confirmation),
+    formData.value.password_confirmation,
   );
 
   if (formData.value.image instanceof File) {
@@ -171,180 +269,290 @@ const submit = async () => {
   }
 
   isLoading.value = true;
+  message.value = "";
+
   try {
     const res = await userStore.addUser(data);
 
-    // console.log(res);
-    userStore.data?.data.data.unshift(res.data?.data);
+    if (userStore.data?.data?.data && res?.data?.data) {
+      userStore.data.data.data.unshift(res.data.data);
+    }
+
+    emit("submitted", res?.data?.data);
     emit("close");
-  } catch (e: any) {
-    // console.log(e);
-    message.value = e.response?.data;
+  } catch (error: any) {
+    const response = error?.response?.data;
+
+    if (typeof response === "string") {
+      message.value = response;
+    } else if (response?.message) {
+      message.value = response.message;
+    } else {
+      message.value = "Something went wrong. Please try again.";
+    }
   } finally {
     isLoading.value = false;
   }
 };
+
+/* -------------------------------------------------- */
+/* Close                                               */
+/* -------------------------------------------------- */
+
+const close = () => {
+  if (isLoading.value) return;
+
+  emit("close");
+};
 </script>
 
 <template>
+  <!-- Overlay -->
   <div
-    @click="$emit('close')"
-    class="w-full justify-center items-center fixed top-0 bottom-0 right-0 left-0 bg-black/20 z-50 backdrop-blur-xs flex p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+    @click.self="close"
   >
+    <!-- Modal -->
     <div
-      class="w-3/5 max-md:w-full max-lg:w-8/9 max-xl:w-3/4 bg-white rounded-2xl border border-slate-400"
-      @click.stop
+      class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
     >
       <!-- Header -->
-      <div class="w-full flex justify-between items-center px-3 py-3">
-        <p class="font-Inter text-slate-500">Add New Alumni</p>
+      <div
+        class="flex items-center justify-between border-b border-slate-200 px-6 py-4"
+      >
+        <div>
+          <h2 class="text-base font-semibold text-slate-800">
+            Add New Alumni
+          </h2>
+
+          <p class="mt-1 text-xs text-slate-500">
+            Create a new alumni account and profile.
+          </p>
+        </div>
+
         <button
-          @click="$emit('close')"
-          class="flex justify-center items-center rounded-md hover:text-red-500 cursor-pointer"
+          type="button"
+          class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+          @click="close"
         >
           <CloseIcon />
         </button>
       </div>
-      <hr class="text-slate-100" />
-      <span v-if="message" class="px-4 text-xs text-red-500">{{
-        message
-      }}</span>
 
-      <form @submit.prevent="submit">
-        <div class="w-full flex flex-col gap-2">
+      <!-- Error Message -->
+      <div
+        v-if="message"
+        class="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600"
+      >
+        {{ message }}
+      </div>
+
+      <!-- Form -->
+      <form
+        class="flex min-h-0 flex-1 flex-col"
+        @submit.prevent="submit"
+      >
+        <!-- Scroll Area -->
+        <div class="flex-1 overflow-y-auto px-6 py-5">
+          <!-- Profile Section -->
           <div
-            class="w-full px-4 py-2 flex flex-col gap-2 flex-1 h-auto max-h-[70vh] overflow-y-auto"
+            class="mb-6 rounded-xl border border-slate-200 bg-slate-50/60 p-4"
           >
-            <div
-              class="w-full grid grid-cols-3 gap-3 max-md:grid-cols-1 max-lg:grid-cols-2"
-            >
-              <!-- User Khmer / Gender -->
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Name Khmer <span class="text-red-500">*</span>
+            <div class="mb-4">
+              <h3 class="text-sm font-semibold text-slate-800">
+                Profile Information
+              </h3>
+
+              <p class="mt-1 text-xs text-slate-500">
+                Basic information about the alumni.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <!-- Khmer Name -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Name Khmer
+                  <span class="text-red-500">*</span>
                 </label>
+
                 <input
-                  type="text"
                   v-model="formData.name_khmer"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter name khmer"
-                  :class="
-                    errors.name_khmer ? 'border-red-500' : 'border-slate-300'
-                  "
-                />
-                <span class="text-xs text-red-500">{{
-                  errors.name_khmer
-                }}</span>
-              </div>
-
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Name English <span class="text-red-500">*</span>
-                </label>
-                <input
                   type="text"
-                  v-model="formData.name_english"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter name english"
-                  :class="
-                    errors.name_english ? 'border-red-500' : 'border-slate-300'
-                  "
+                  placeholder="Enter Khmer name"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.name_khmer }"
                 />
-                <span class="text-xs text-red-500">{{
-                  errors.name_english
-                }}</span>
+
+                <p v-if="errors.name_khmer" class="form-error">
+                  {{ errors.name_khmer }}
+                </p>
               </div>
 
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Gender <span class="text-red-500">*</span>
+              <!-- English Name -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Name English
+                  <span class="text-red-500">*</span>
                 </label>
+
+                <input
+                  v-model="formData.name_english"
+                  type="text"
+                  placeholder="Enter English name"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.name_english }"
+                />
+
+                <p v-if="errors.name_english" class="form-error">
+                  {{ errors.name_english }}
+                </p>
+              </div>
+
+              <!-- Gender -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Gender
+                  <span class="text-red-500">*</span>
+                </label>
+
                 <select
                   v-model="formData.gender"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  :class="errors.gender ? 'border-red-500' : 'border-slate-300'"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.gender }"
                 >
-                  <option value="" disabled selected>សូមជ្រើសរើស</option>
-                  <option v-for="g in genders" :key="g" :value="g">
-                    {{ g.charAt(0).toUpperCase() + g.slice(1) }}
+                  <option value="" disabled>
+                    Select gender
+                  </option>
+
+                  <option
+                    v-for="gender in genders"
+                    :key="gender"
+                    :value="gender"
+                  >
+                    {{ gender.charAt(0).toUpperCase() + gender.slice(1) }}
                   </option>
                 </select>
-                <span class="text-xs text-red-500">{{ errors.gender }}</span>
+
+                <p v-if="errors.gender" class="form-error">
+                  {{ errors.gender }}
+                </p>
               </div>
 
-              <!-- Date of Birth / Phone -->
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Date of Birth <span class="text-red-500">*</span>
+              <!-- Date of Birth -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Date of Birth
+                  <span class="text-red-500">*</span>
                 </label>
+
                 <input
-                  type="date"
                   v-model="formData.dateOfBirth"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  :class="
-                    errors.dateOfBirth ? 'border-red-500' : 'border-slate-300'
-                  "
+                  type="date"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.dateOfBirth }"
                 />
-                <span class="text-xs text-red-500">{{
-                  errors.dateOfBirth
-                }}</span>
+
+                <p v-if="errors.dateOfBirth" class="form-error">
+                  {{ errors.dateOfBirth }}
+                </p>
               </div>
 
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Mobile Phone <span class="text-red-500">*</span>
+              <!-- Phone -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Mobile Phone
+                  <span class="text-red-500">*</span>
                 </label>
+
                 <input
-                  type="text"
                   v-model="formData.phone"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="000 - 000 - 0000"
-                  :class="errors.phone ? 'border-red-500' : 'border-slate-300'"
+                  type="tel"
+                  placeholder="Enter mobile phone"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.phone }"
                 />
-                <span class="text-xs text-red-500">{{ errors.phone }}</span>
+
+                <p v-if="errors.phone" class="form-error">
+                  {{ errors.phone }}
+                </p>
               </div>
 
-              <!-- Major / Last Year -->
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Major <span class="text-red-500">*</span>
+              <!-- Graduation Year -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Graduation Year
+                  <span class="text-red-500">*</span>
                 </label>
-                <OptionsOption
-                  class="z-50"
-                  :items="majors.data?.data ?? []"
-                  :title="'Please Select Major'"
-                  :active="majorActive ?? undefined"
-                  :z-index="'z-50'"
-                  @update:active="handleMajor($event)"
-                />
-                <span class="text-xs text-red-500">{{ errors.major }}</span>
-              </div>
 
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Last Year <span class="text-red-500">*</span>
-                </label>
                 <input
-                  type="number"
                   v-model="formData.year"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Year"
-                  :class="errors.year ? 'border-red-500' : 'border-slate-300'"
+                  type="number"
+                  min="1900"
+                  max="2100"
+                  placeholder="e.g. 2025"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.year }"
                 />
-                <span class="text-xs text-red-500">{{ errors.year }}</span>
+
+                <p v-if="errors.year" class="form-error">
+                  {{ errors.year }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Academic & Career -->
+          <div
+            class="mb-6 rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <div class="mb-4">
+              <h3 class="text-sm font-semibold text-slate-800">
+                Academic & Career
+              </h3>
+
+              <p class="mt-1 text-xs text-slate-500">
+                Academic background and current work information.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <!-- Major -->
+              <div class="relative">
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Major
+                  <span class="text-red-500">*</span>
+                </label>
+
+                <OptionsOption
+                  :items="majors.data?.data ?? []"
+                  title="Select Major"
+                  :active="majorActive ?? undefined"
+                  z-index="z-30"
+                  @update:active="handleMajor"
+                />
+
+                <p v-if="errors.major" class="form-error">
+                  {{ errors.major }}
+                </p>
               </div>
 
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Status Work {{ formData.status
-                  }}<span class="text-red-500">*</span>
+              <!-- Work Status -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Work Status
+                  <span class="text-red-500">*</span>
                 </label>
+
                 <select
                   v-model="formData.status"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  :class="errors.status ? 'border-red-500' : 'border-slate-300'"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.status }"
                 >
-                  <option value="" disabled selected>សូមជ្រើសរើស</option>
+                  <option value="" disabled>
+                    Select work status
+                  </option>
+
                   <option
                     v-for="(item, index) in workStatus"
                     :key="index"
@@ -353,190 +561,273 @@ const submit = async () => {
                     {{ item.title }}
                   </option>
                 </select>
-                <span class="text-xs text-red-500">{{ errors.status }}</span>
+
+                <p v-if="errors.status" class="form-error">
+                  {{ errors.status }}
+                </p>
               </div>
 
-              <div class="w-full">
-                <label class="text-xs text-slate-500">
-                  Address Work <span class="text-red-500">*</span>
+              <!-- Address -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Address
+                  <span class="text-red-500">*</span>
                 </label>
+
                 <input
-                  type="text"
                   v-model="formData.address"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter address"
-                  :class="
-                    errors.address ? 'border-red-500' : 'border-slate-300'
-                  "
-                />
-                <span class="text-xs text-red-500">{{ errors.address }}</span>
-              </div>
-
-              <div class="w-full">
-                <label class="text-xs text-slate-500"> Work Address </label>
-                <input
                   type="text"
-                  v-model="formData.work_address"
-                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter address"
-                  :class="
-                    errors.work_address ? 'border-red-500' : 'border-slate-300'
-                  "
+                  placeholder="Enter current address"
+                  class="form-input"
+                  :class="{ 'form-input-error': errors.address }"
                 />
-                <span class="text-xs text-red-500">{{
-                  errors.work_address
-                }}</span>
+
+                <p v-if="errors.address" class="form-error">
+                  {{ errors.address }}
+                </p>
               </div>
 
-              <div class="w-full col-span-1">
-                <label class="text-xs text-slate-500">
-                  Create password <span class="text-red-500">*</span>
+              <!-- Work Address -->
+              <div class="md:col-span-2 lg:col-span-3">
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Work Address
                 </label>
-                <div class="w-full relative">
-                  <input
-                    :type="isPassword ? 'text' : 'password'"
-                    v-model="formData.password"
-                    class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="******"
-                    :class="
-                      errors.password ? 'border-red-500' : 'border-slate-300'
-                    "
-                  />
 
-                  <button
-                    @click="handlePassword"
-                    type="button"
-                    class="absolute top-0 right-0 bottom-0 p-2 flex justify-center items-center hover:text-red-500 cursor-pointer"
-                    :class="!isPassword ? 'text-primary' : 'text-red-500'"
-                  >
-                    <div>
-                      <component :is="isPassword ? EyeIcon : OffEyeIcon" />
-                    </div>
-                  </button>
-                </div>
-                <span class="text-xs text-red-500">{{ errors.password }}</span>
-              </div>
-
-              <div class="w-full col-span-1">
-                <label class="text-xs text-slate-500">
-                  Confirm password <span class="text-red-500">*</span>
-                </label>
-                <div class="w-full relative">
-                  <input
-                    :type="isPassword ? 'text' : 'password'"
-                    v-model="formData.password_confirmation"
-                    class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="******"
-                    :class="
-                      errors.password_confirmation
-                        ? 'border-red-500'
-                        : 'border-slate-300'
-                    "
-                  />
-
-                  <button
-                    @click="handlePassword"
-                    type="button"
-                    class="absolute top-0 right-0 bottom-0 p-2 flex justify-center items-center hover:text-red-500 cursor-pointer"
-                    :class="!isPassword ? 'text-primary' : 'text-red-500'"
-                  >
-                    <div>
-                      <component :is="isPassword ? EyeIcon : OffEyeIcon" />
-                    </div>
-                  </button>
-                </div>
-                <span class="text-xs text-red-500">{{
-                  errors.password_confirmation
-                }}</span>
+                <input
+                  v-model="formData.work_address"
+                  type="text"
+                  placeholder="Enter company / workplace address"
+                  class="form-input"
+                />
               </div>
             </div>
-            <!-- Image Upload -->
-            <div class="w-full">
-              <div
-                class="flex justify-start items-center text-xs text-slate-500"
-              >
-                <p>Image</p>
-                <span class="text-red-500">*</span>
-              </div>
-              <label for="file">
-                <div
-                  class="w-full relative h-20 border border-dashed border-info hover:bg-primary/5 cursor-pointer rounded-lg flex justify-center items-center overflow-hidden"
-                  :class="errors.image ? 'border-red-500' : 'border-info'"
-                >
-                  <input
-                    id="file"
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    @change="handleImageChange"
-                  />
+          </div>
 
+          <!-- Account & Image -->
+          <div
+            class="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
+          >
+            <div class="mb-4">
+              <h3 class="text-sm font-semibold text-slate-800">
+                Account & Profile Image
+              </h3>
+
+              <p class="mt-1 text-xs text-slate-500">
+                Set login credentials and upload profile image.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <!-- Password -->
+              <div class="space-y-4">
+                <div>
+                  <label
+                    class="mb-1 block text-xs font-medium text-slate-600"
+                  >
+                    Password
+                    <span class="text-red-500">*</span>
+                  </label>
+
+                  <div class="relative">
+                    <input
+                      v-model="formData.password"
+                      :type="isPassword ? 'text' : 'password'"
+                      placeholder="Minimum 8 characters"
+                      class="form-input pr-11"
+                      :class="{ 'form-input-error': errors.password }"
+                    />
+
+                    <button
+                      type="button"
+                      class="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-slate-400 transition hover:text-primary"
+                      @click="togglePassword"
+                    >
+                      <component
+                        :is="isPassword ? EyeIcon : OffEyeIcon"
+                      />
+                    </button>
+                  </div>
+
+                  <p v-if="errors.password" class="form-error">
+                    {{ errors.password }}
+                  </p>
+                </div>
+
+                <!-- Confirm -->
+                <div>
+                  <label
+                    class="mb-1 block text-xs font-medium text-slate-600"
+                  >
+                    Confirm Password
+                    <span class="text-red-500">*</span>
+                  </label>
+
+                  <div class="relative">
+                    <input
+                      v-model="formData.password_confirmation"
+                      :type="isPassword ? 'text' : 'password'"
+                      placeholder="Repeat password"
+                      class="form-input pr-11"
+                      :class="{
+                        'form-input-error': errors.password_confirmation,
+                      }"
+                    />
+
+                    <button
+                      type="button"
+                      class="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-slate-400 transition hover:text-primary"
+                      @click="togglePassword"
+                    >
+                      <component
+                        :is="isPassword ? EyeIcon : OffEyeIcon"
+                      />
+                    </button>
+                  </div>
+
+                  <p
+                    v-if="errors.password_confirmation"
+                    class="form-error"
+                  >
+                    {{ errors.password_confirmation }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Image -->
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-600">
+                  Profile Image
+                </label>
+
+                <input
+                  ref="imageInput"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="handleImageChange"
+                />
+
+                <div
+                  class="relative flex min-h-40 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white transition hover:border-primary hover:bg-primary/5"
+                  :class="{
+                    'border-red-500': errors.image,
+                  }"
+                  @click="openImagePicker"
+                >
                   <img
                     v-if="imagePreview"
                     :src="imagePreview"
-                    alt="Preview"
-                    class="h-full object-contain"
+                    alt="Profile preview"
+                    class="h-40 w-full object-contain"
                   />
+
                   <div
                     v-else
-                    class="text-xs text-slate-500 flex flex-col justify-center items-center"
+                    class="flex flex-col items-center justify-center text-center"
                   >
-                    <ImageIcon class="size-10 text-slate-400" />
-                    <p>Max size 5MB</p>
+                    <div
+                      class="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100"
+                    >
+                      <ImageIcon class="size-7 text-slate-400" />
+                    </div>
+
+                    <p class="text-xs font-medium text-slate-600">
+                      Click to upload image
+                    </p>
+
+                    <p class="mt-1 text-[11px] text-slate-400">
+                      PNG, JPG or JPEG · Max 5MB
+                    </p>
                   </div>
+
+                  <button
+                    v-if="imagePreview"
+                    type="button"
+                    class="absolute right-2 top-2 rounded-lg bg-red-500 px-2 py-1 text-[11px] text-white shadow hover:bg-red-600"
+                    @click.stop="removeImage"
+                  >
+                    Remove
+                  </button>
                 </div>
-              </label>
-              <span class="text-xs text-red-500">{{ errors.image }}</span>
+
+                <p v-if="errors.image" class="form-error">
+                  {{ errors.image }}
+                </p>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div class="px-4 pb-4 flex items-center justify-end gap-6 mt-4">
-            <button
-            @click="$emit('close')"
-              type="button"
-              class="w-1/8 p-2 bg-red-600 text-white text-sm hover:bg-red-700 cursor-pointer rounded-lg min-w-20"
-            >
-              Cancel
-            </button>
+        <!-- Footer -->
+        <div
+          class="flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-4"
+        >
+          <button
+            type="button"
+            :disabled="isLoading"
+            class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="close"
+          >
+            Cancel
+          </button>
 
-            <button
-              type="submit"
-              :disabled="isLoading"
-              class="w-1/8 flex justify-center disabled:bg-secondary items-center text-sm bg-primary text-white rounded-lg p-2 cursor-pointer hover:bg-primary/80 transition-colors"
-            >
-              <span v-if="!isLoading">Save</span>
-              <div v-else class="font-Inter flex justify-center items-end">
-                <span>Please wating</span>
-                <SpannerIcon />
-              </div>
-            </button>
-          </div>
+          <button
+            type="submit"
+            :disabled="isLoading"
+            class="flex min-w-28 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <template v-if="!isLoading">
+              Save Alumni
+            </template>
+
+            <template v-else>
+              <span>Saving...</span>
+              <SpannerIcon />
+            </template>
+          </button>
         </div>
       </form>
     </div>
   </div>
 </template>
 
-<style>
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.2s ease;
+<style scoped>
+.form-input {
+  width: 100%;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  color: rgb(51 65 85);
+  background: white;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
+.form-input::placeholder {
+  color: rgb(148 163 184);
 }
 
-.fade-text-enter-active,
-.fade-text-leave-active {
-  transition: all 0.2s ease;
+.form-input:focus {
+  border-color: rgb(59 130 246);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
 }
 
-.fade-text-enter-from,
-.fade-text-leave-to {
-  opacity: 0;
-  transform: translateY(6px);
+.form-input-error {
+  border-color: rgb(239 68 68);
+}
+
+.form-input-error:focus {
+  border-color: rgb(239 68 68);
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 0.1);
+}
+
+.form-error {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  color: rgb(239 68 68);
 }
 </style>

@@ -4,27 +4,25 @@ import CourseIcon from "../icons/CourseIcon.vue";
 import DashboardIcon from "../icons/DashboardIcon.vue";
 import DateIcon from "../icons/DateIcon.vue";
 import MessageIcon from "../icons/MessageIcon.vue";
-import SettingIcon from "../icons/SettingIcon.vue";
 import UserAdminIcon from "../icons/UserAdminIcon.vue";
 import UserIcon from "../icons/UserIcon.vue";
 import { markRaw } from "vue";
 const pages = reactive([
-  { name: "Dashboard", icon: markRaw(DashboardIcon), route: "/admin" },
-  { name: "Users", icon: markRaw(UserIcon), route: "/admin/users" },
-  { name: "Staff", icon: markRaw(UserAdminIcon), route: "/admin/staff" },
+  { name: "Dashboard", icon: markRaw(DashboardIcon), route: "/admins" },
+  { name: "Users", icon: markRaw(UserIcon), route: "/admins/users" },
+  { name: "Staff", icon: markRaw(UserAdminIcon), route: "/admins/staffs" },
   {
     name: "Departments",
     icon: markRaw(CourseIcon),
-    route: "/admin/department",
+    route: "/admins/department",
   },
   {
     name: "Report & Statistics",
     icon: markRaw(AnalyIcon),
-    route: "/admin/report",
+    route: "/admins/report",
   },
-  { name: "Messages", icon: markRaw(MessageIcon), route: "/admin/message" },
-  { name: "Events", icon: markRaw(DateIcon), route: "/admin/event" },
-  { name: "Settings", icon: markRaw(SettingIcon), route: "/admin/setting" },
+  { name: "Messages", icon: markRaw(MessageIcon), route: "/admins/messages" },
+  { name: "Events", icon: markRaw(DateIcon), route: "/admins/events" },
 ]);
 
 const sideBarStore = useSideBarStore();

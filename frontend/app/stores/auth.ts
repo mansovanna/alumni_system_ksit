@@ -37,8 +37,8 @@ export const useAuthStore = defineStore("auth", {
         if (this.user?.role == "alumni") {
           return navigateTo("/");
         }
-        // console.log(this.user?.role)
-        return navigateTo("/admin");
+
+        return navigateTo("/admins");
       } catch (e: any) {
         this.errors.login = e.response.data.errors.login;
         this.errors.password = e.response.data.errors.password;
@@ -66,7 +66,6 @@ export const useAuthStore = defineStore("auth", {
     // Block get curren user
     async fetchUser() {
       const token = useCookie("auth_token").value;
-      // console.log("🔑 Token from cookie:", token);
 
       if (!token) {
         this.clearAuth();
@@ -77,15 +76,10 @@ export const useAuthStore = defineStore("auth", {
       try {
         const { $api } = useNuxtApp();
         const response = await $api.get("/user");
-        // console.log("✅ User fetched:", response.data);
+
         this.user = response.data?.data;
         this.token = token;
       } catch (e: any) {
-        // console.log(
-        //   "❌ Fetch user failed:",
-        //   e.response?.status,
-        //   e.response?.data,
-        // ); 
         this.clearAuth();
       } finally {
         this.isReady = true;
