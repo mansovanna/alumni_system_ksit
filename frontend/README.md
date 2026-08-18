@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Nuxt Minimal Starter
 
 Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
@@ -74,8 +73,3 @@ bun run preview
 ```
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
-=======
-## Alumni System for KSIT (Work Freelence)
-## Frontend usig by Nuxt js framework 
-## Backend using by laravel Intergrate API using by Sanctom 
->>>>>>> ecea5842dbff8b8bf7d3e00e37187294582de48f
