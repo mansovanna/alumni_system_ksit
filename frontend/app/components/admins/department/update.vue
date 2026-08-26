@@ -25,19 +25,13 @@ const messageError = ref("");
 const isLoading = ref(false);
 
 const formData = ref({
-  title: props.data?.title ?? "",
-  body: props.data?.body ?? "",
-  color_from: props.data?.color_from ?? "#51A2FF",
-  color_to: props.data?.color_to ?? "#193CB8",
-  icon: props.data?.icon ?? "user",
+  name: props.data?.name ?? "",
+  description: props.data?.description ?? "",
 });
 
 const errors = ref({
   title: "",
-  body: "",
-  color_from: "",
-  color_to: "",
-  icon: "",
+  description: "",
 });
 
 /*
@@ -49,38 +43,20 @@ const errors = ref({
 const validate = () => {
   errors.value = {
     title: "",
-    body: "",
-    color_from: "",
-    color_to: "",
-    icon: "",
+    description: "",
   };
 
   messageError.value = "";
 
   let hasError = false;
 
-  if (!formData.value.title.trim()) {
+  if (!formData.value.name.trim()) {
     errors.value.title = "Title is required.";
     hasError = true;
   }
 
-  if (!formData.value.body.trim()) {
-    errors.value.body = "Description is required.";
-    hasError = true;
-  }
-
-  if (!formData.value.color_from) {
-    errors.value.color_from = "Start color is required.";
-    hasError = true;
-  }
-
-  if (!formData.value.color_to) {
-    errors.value.color_to = "End color is required.";
-    hasError = true;
-  }
-
-  if (!formData.value.icon) {
-    errors.value.icon = "Icon is required.";
+  if (!formData.value.description.trim()) {
+    errors.value.description = "Description is required.";
     hasError = true;
   }
 
@@ -110,59 +86,34 @@ const submit = async () => {
 
   const data = new FormData();
 
-  data.append("title", formData.value.title.trim());
-  data.append("body", formData.value.body.trim());
-  data.append("color_from", formData.value.color_from);
-  data.append("color_to", formData.value.color_to);
-  data.append("icon", formData.value.icon);
+  data.append("name", formData.value.name.trim());
+  data.append("description", formData.value.description.trim());
 
   isLoading.value = true;
 
   try {
-    const res = await majorStore.updateMajor(
-      Number(props.data.id),
-      data,
-    );
+    const res = await majorStore.updateMajor(Number(props.data.id), data);
 
     const updatedMajor = res.data?.data;
 
-    if (
-      updatedMajor &&
-      majorStore.majors?.data?.data
-    ) {
-      majorStore.majors.data.data =
-        majorStore.majors.data.data.map((item) =>
-          item.id === updatedMajor.id
-            ? updatedMajor
-            : item,
-        );
+    if (updatedMajor && majorStore.majors?.data) {
+      majorStore.majors.data = majorStore.majors.data.map((item) =>
+        item.id === updatedMajor.id ? updatedMajor : item,
+      );
     }
 
     emit("submitted", updatedMajor);
     emit("close");
   } catch (e: any) {
-    const serverErrors =
-      e?.response?.data?.errors;
+    const serverErrors = e?.response?.data?.errors;
 
     messageError.value =
-      e?.response?.data?.message ||
-      "Something went wrong. Please try again.";
+      e?.response?.data?.message || "Something went wrong. Please try again.";
 
     if (serverErrors) {
-      errors.value.title =
-        serverErrors?.title?.[0] ?? "";
+      errors.value.title = serverErrors?.title?.[0] ?? "";
 
-      errors.value.body =
-        serverErrors?.body?.[0] ?? "";
-
-      errors.value.color_from =
-        serverErrors?.color_from?.[0] ?? "";
-
-      errors.value.color_to =
-        serverErrors?.color_to?.[0] ?? "";
-
-      errors.value.icon =
-        serverErrors?.icon?.[0] ?? "";
+      errors.value.description = serverErrors?.description?.[0] ?? "";
     }
   } finally {
     isLoading.value = false;
@@ -179,7 +130,6 @@ const submit = async () => {
     class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm"
     @click="closeModal"
   >
-
     <!-- ================================================================
          Modal
     ================================================================= -->
@@ -188,23 +138,13 @@ const submit = async () => {
       class="relative w-full max-w-2xl max-h-[92vh] overflow-hidden bg-white rounded-2xl shadow-2xl shadow-slate-900/20 border border-slate-200"
       @click.stop
     >
-
       <!-- ================================================================
            Header
       ================================================================= -->
 
-      <div
-        class="px-6 py-5 border-b border-slate-100 bg-white"
-      >
-
-        <div
-          class="flex items-start justify-between gap-4"
-        >
-
-          <div
-            class="flex items-center gap-3"
-          >
-
+      <div class="px-6 py-5 border-b border-slate-100 bg-white">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-center gap-3">
             <!-- Icon -->
 
             <div
@@ -216,21 +156,12 @@ const submit = async () => {
             <!-- Title -->
 
             <div>
+              <h2 class="text-base font-semibold text-slate-800">Edit Major</h2>
 
-              <h2
-                class="text-base font-semibold text-slate-800"
-              >
-                Edit Major
-              </h2>
-
-              <p
-                class="text-xs text-slate-400 mt-1"
-              >
+              <p class="text-xs text-slate-400 mt-1">
                 Update major or department information.
               </p>
-
             </div>
-
           </div>
 
           <!-- Close -->
@@ -243,9 +174,7 @@ const submit = async () => {
           >
             <CloseIcon class="size-5" />
           </button>
-
         </div>
-
       </div>
 
       <!-- ================================================================
@@ -256,9 +185,7 @@ const submit = async () => {
         @submit.prevent="submit"
         class="overflow-y-auto max-h-[calc(92vh-145px)]"
       >
-
         <div class="px-6 py-5 space-y-5">
-
           <!-- ============================================================
                Server Error
           ============================================================= -->
@@ -267,7 +194,6 @@ const submit = async () => {
             v-if="messageError"
             class="flex items-start gap-3 p-3.5 rounded-xl border border-red-200 bg-red-50 text-red-600"
           >
-
             <div
               class="size-5 shrink-0 rounded-full bg-red-100 flex items-center justify-center text-xs font-bold"
             >
@@ -277,7 +203,6 @@ const submit = async () => {
             <p class="text-sm">
               {{ messageError }}
             </p>
-
           </div>
 
           <!-- ============================================================
@@ -285,40 +210,25 @@ const submit = async () => {
           ============================================================= -->
 
           <div>
+            <div class="flex items-center gap-2 mb-3">
+              <div class="size-1.5 rounded-full bg-blue-500"></div>
 
-            <div
-              class="flex items-center gap-2 mb-3"
-            >
-
-              <div
-                class="size-1.5 rounded-full bg-blue-500"
-              ></div>
-
-              <h3
-                class="text-sm font-semibold text-slate-700"
-              >
+              <h3 class="text-sm font-semibold text-slate-700">
                 Basic Information
               </h3>
-
             </div>
 
-            <div
-              class="grid grid-cols-1 md:grid-cols-2 gap-4"
-            >
-
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <!-- Title -->
 
               <div class="md:col-span-2">
-
-                <label
-                  class="block text-xs font-medium text-slate-600 mb-1.5"
-                >
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
                   Major / Department Name
                   <span class="text-red-500">*</span>
                 </label>
 
                 <input
-                  v-model="formData.title"
+                  v-model="formData.name"
                   type="text"
                   autocomplete="off"
                   placeholder="e.g. Computer Science"
@@ -330,287 +240,45 @@ const submit = async () => {
                   "
                 />
 
-                <p
-                  v-if="errors.title"
-                  class="mt-1.5 text-xs text-red-500"
-                >
+                <p v-if="errors.title" class="mt-1.5 text-xs text-red-500">
                   {{ errors.title }}
                 </p>
-
               </div>
 
               <!-- Body -->
 
               <div class="md:col-span-2">
-
-                <label
-                  class="block text-xs font-medium text-slate-600 mb-1.5"
-                >
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
                   Description
                   <span class="text-red-500">*</span>
                 </label>
 
                 <textarea
-                  v-model="formData.body"
+                  v-model="formData.description"
                   rows="3"
                   placeholder="Enter a short description..."
                   class="w-full px-3.5 py-3 bg-slate-50 border rounded-xl text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none transition-all focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                   :class="
-                    errors.body
+                    errors.description
                       ? 'border-red-400 focus:border-red-400'
                       : 'border-slate-200 focus:border-blue-500'
                   "
                 ></textarea>
 
                 <p
-                  v-if="errors.body"
+                  v-if="errors.description"
                   class="mt-1.5 text-xs text-red-500"
                 >
-                  {{ errors.body }}
+                  {{ errors.description }}
                 </p>
-
               </div>
-
-              <!-- Icon -->
-
-              <div class="md:col-span-2">
-
-                <label
-                  class="block text-xs font-medium text-slate-600 mb-1.5"
-                >
-                  Icon
-                  <span class="text-red-500">*</span>
-                </label>
-
-                <div
-                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50"
-                >
-
-                  <OptionsOptionItemIcon
-                    :items="icons ?? []"
-                    zIndex="z-[120]"
-                    :active="formData.icon"
-                    @update:active="formData.icon = $event"
-                  />
-
-                </div>
-
-                <p
-                  v-if="errors.icon"
-                  class="mt-1.5 text-xs text-red-500"
-                >
-                  {{ errors.icon }}
-                </p>
-
-              </div>
-
             </div>
-
           </div>
-
-          <!-- ============================================================
-               Gradient Colors
-          ============================================================= -->
-
-          <div>
-
-            <div
-              class="flex items-center justify-between mb-3"
-            >
-
-              <div
-                class="flex items-center gap-2"
-              >
-
-                <div
-                  class="size-1.5 rounded-full bg-blue-500"
-                ></div>
-
-                <h3
-                  class="text-sm font-semibold text-slate-700"
-                >
-                  Gradient Colors
-                </h3>
-
-              </div>
-
-              <span
-                class="text-xs text-slate-400"
-              >
-                Click the color to change
-              </span>
-
-            </div>
-
-            <!-- Preview -->
-
-            <div
-              class="relative h-24 rounded-xl overflow-hidden border border-slate-200 shadow-inner"
-              :style="{
-                backgroundImage: `linear-gradient(110deg, ${formData.color_from}, ${formData.color_to})`,
-              }"
-            >
-
-              <!-- Overlay -->
-
-              <div
-                class="absolute inset-0 bg-black/5"
-              ></div>
-
-              <!-- Preview label -->
-
-              <div
-                class="absolute inset-0 flex items-center justify-center"
-              >
-
-                <div
-                  class="px-4 py-2 rounded-lg bg-white/15 backdrop-blur-md border border-white/20 text-white text-sm font-medium shadow-sm"
-                >
-                  Gradient Preview
-                </div>
-
-              </div>
-
-              <!-- Start Color -->
-
-              <label
-                class="absolute left-3 top-3 cursor-pointer group"
-              >
-
-                <div
-                  class="size-9 rounded-lg border-2 border-white shadow-lg ring-1 ring-black/10 group-hover:scale-105 transition-transform"
-                  :style="{
-                    backgroundColor: formData.color_from,
-                  }"
-                ></div>
-
-                <input
-                  v-model="formData.color_from"
-                  type="color"
-                  class="sr-only"
-                />
-
-              </label>
-
-              <!-- End Color -->
-
-              <label
-                class="absolute right-3 top-3 cursor-pointer group"
-              >
-
-                <div
-                  class="size-9 rounded-lg border-2 border-white shadow-lg ring-1 ring-black/10 group-hover:scale-105 transition-transform"
-                  :style="{
-                    backgroundColor: formData.color_to,
-                  }"
-                ></div>
-
-                <input
-                  v-model="formData.color_to"
-                  type="color"
-                  class="sr-only"
-                />
-
-              </label>
-
-            </div>
-
-            <!-- Color Inputs -->
-
-            <div
-              class="grid grid-cols-2 gap-3 mt-3"
-            >
-
-              <!-- From -->
-
-              <div>
-
-                <label
-                  class="block text-xs text-slate-500 mb-1.5"
-                >
-                  Start Color
-                </label>
-
-                <div class="relative">
-
-                  <span
-                    class="absolute left-3 top-1/2 -translate-y-1/2 size-4 rounded-full border border-slate-200"
-                    :style="{
-                      backgroundColor:
-                        formData.color_from,
-                    }"
-                  ></span>
-
-                  <input
-                    v-model="formData.color_from"
-                    type="text"
-                    maxlength="7"
-                    class="w-full h-10 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono uppercase text-slate-600 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                  />
-
-                </div>
-
-                <p
-                  v-if="errors.color_from"
-                  class="mt-1 text-xs text-red-500"
-                >
-                  {{ errors.color_from }}
-                </p>
-
-              </div>
-
-              <!-- To -->
-
-              <div>
-
-                <label
-                  class="block text-xs text-slate-500 mb-1.5"
-                >
-                  End Color
-                </label>
-
-                <div class="relative">
-
-                  <span
-                    class="absolute left-3 top-1/2 -translate-y-1/2 size-4 rounded-full border border-slate-200"
-                    :style="{
-                      backgroundColor:
-                        formData.color_to,
-                    }"
-                  ></span>
-
-                  <input
-                    v-model="formData.color_to"
-                    type="text"
-                    maxlength="7"
-                    class="w-full h-10 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono uppercase text-slate-600 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                  />
-
-                </div>
-
-                <p
-                  v-if="errors.color_to"
-                  class="mt-1 text-xs text-red-500"
-                >
-                  {{ errors.color_to }}
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
         </div>
-
-        <!-- ================================================================
-             Footer
-        ================================================================= -->
 
         <div
           class="sticky bottom-0 px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-end gap-3"
         >
-
           <!-- Cancel -->
 
           <button
@@ -629,34 +297,18 @@ const submit = async () => {
             :disabled="isLoading"
             class="min-w-32 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium flex items-center justify-center gap-2 shadow-sm shadow-blue-600/20 hover:bg-blue-700 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
-
             <template v-if="!isLoading">
-
-              <span>
-                Update Major
-              </span>
-
+              <span> Update Major </span>
             </template>
 
             <template v-else>
+              <SpannerIcon class="size-4 animate-spin" />
 
-              <SpannerIcon
-                class="size-4 animate-spin"
-              />
-
-              <span>
-                Updating...
-              </span>
-
+              <span> Updating... </span>
             </template>
-
           </button>
-
         </div>
-
       </form>
-
     </div>
-
   </div>
 </template>

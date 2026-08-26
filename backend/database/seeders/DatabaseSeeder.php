@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Alumni;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -23,8 +24,10 @@ class DatabaseSeeder extends Seeder
         // ]);
 
         $this->call([
+            RoleSeeder::class,
+            MajorSeeder::class,   // ← ត្រូវដាក់មុន AlumniSeeder
             UserSeeder::class,
-            MajorSeeder::class
+            AlumniSeeder::class,
         ]);
     }
 }

@@ -2,6 +2,14 @@
 import SideBarIcon from "../icons/SideBarIcon.vue";
 
 const sideBarStore = useSideBarStore();
+const authStore = useAuthStore();
+const avata = useAvatar();
+
+function splitName(name: string) {
+  if (!name) return "";
+  const parts = name.replace(/-/g, " ").trim().split(/\s+/);
+  return parts[parts.length - 1];
+}
 </script>
 
 <template>
@@ -15,24 +23,56 @@ const sideBarStore = useSideBarStore();
       >
         <side-bar-icon class="w-6 h-6" />
       </button>
-      <h1 class="text-lg font-semibold text-gray-800 capitalize">
-        {{ $route.name }}
-      </h1>
+
+      <!-- កែប្រែ៖ រុំ ClientOnly លើ route name ដើម្បីជៀសវាង Server/Client មិនដូចគ្នា -->
+      <ClientOnly>
+        <h1 class="text-lg font-semibold text-gray-800 capitalize">
+          {{ $route.name }}
+        </h1>
+        <template #fallback>
+          <div class="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
+        </template>
+      </ClientOnly>
     </div>
 
     <!-- Block user name and avatar -->
-    <div class="flex items-center gap-2">
-      <div class="flex flex-col items-end">
-        <span class="text-gray-800 font-medium">Admin Name</span>
-        <p class="text-[12px] text-gray-500">Admin</p>
+    <!-- កែប្រែ៖ រុំ ClientOnly លើផ្នែក User Profile ទាំងមូល -->
+    <ClientOnly>
+      <div class="flex items-center gap-2 leading-2">
+        <div class="flex flex-col items-end">
+          <span class="text-gray-800 font-medium text-sm">
+            {{
+              splitName(authStore.user?.data.user.name_english ?? "") || "N/A"
+            }}
+          </span>
+          <p class="text-[11px] text-gray-500 capitalize">
+            {{ authStore.user?.data.user.role.name ?? "N/A" }}
+          </p>
+        </div>
+        <div>
+          <img
+            :src="
+              authStore.user?.data.user.avatar ??
+              avata.textToImage(
+                authStore.user?.data.user.name_english ?? 'User',
+              )
+            "
+            alt="User Avatar"
+            class="w-10 h-10 rounded-full object-center object-cover ring-2 ring-primary border border-white"
+          />
+        </div>
       </div>
-      <div>
-        <img
-          src="https://plus.unsplash.com/premium_photo-1689568126014-06fea9d5d341?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cHJvZmlsZSUyMHBpY3R1cmV8ZW58MHx8MHx8fDA%3D"
-          alt="User Avatar"
-          class="w-10 h-10 rounded-full object-center object-cover"
-        />
-      </div>
-    </div>
+
+      <!-- ផ្នែក Loading (Fallback) ការពារកុំឲ្យ UI លោតញ័រពេល Render  -->
+      <template #fallback>
+        <div class="flex items-center gap-2">
+          <div class="flex flex-col items-end gap-1">
+            <div class="h-4 w-28 bg-gray-200 animate-pulse rounded"></div>
+            <div class="h-3 w-16 bg-gray-200 animate-pulse rounded"></div>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+        </div>
+      </template>
+    </ClientOnly>
   </nav>
 </template>

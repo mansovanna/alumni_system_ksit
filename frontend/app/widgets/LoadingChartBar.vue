@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full p-6 bg-white rounded-xl shadow">
+  <div class="w-full ">
     <div class="w-full flex flex-col gap-2 animate-pulse ">
       <div>
         <div class="w-1/3 p-2 bg-slate-200 rounded-full"></div>

@@ -1,8 +1,8 @@
-import type { UserModel } from "~/types/user.model";
+import type { LoginResponseModel } from "~/types/LoginResponseModel";
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
-    user: null as UserModel | null,
+    user: null as LoginResponseModel | null,
     token: null as string | null,
     isReady: false,
     isLoading: false,
@@ -13,7 +13,8 @@ export const useAuthStore = defineStore("auth", {
   }),
   getters: {
     isLoggedIn: (state) => !!state.user,
-    isAdmin: (state) => state.user?.role === "admin" || "staff",
+    isAdmin: (state) =>
+      state.user?.data?.user?.role.name === "admin" || "staff",
   },
 
   actions: {
@@ -23,8 +24,8 @@ export const useAuthStore = defineStore("auth", {
       try {
         const response = await $api.post("/login", data);
 
-        this.token = response.data.token;
-        this.user = response.data.user;
+        this.user = response.data;
+        this.token = this.user?.data.token ?? null;
 
         const tokenCookie = useCookie("auth_token", {
           maxAge: 60 * 60 * 24 * 7,
@@ -34,7 +35,7 @@ export const useAuthStore = defineStore("auth", {
         });
         tokenCookie.value = this.token;
 
-        if (this.user?.role == "alumni") {
+        if (this.user?.data.user.role.name == "alumni") {
           return navigateTo("/");
         }
 
@@ -72,24 +73,27 @@ export const useAuthStore = defineStore("auth", {
         this.isReady = true;
         return;
       }
-
+      this.isLoading = true;
       try {
         const { $api } = useNuxtApp();
-        const response = await $api.get("/user");
+        const response = await $api.get("/me");
 
-        this.user = response.data?.data;
+        this.user = response.data;
         this.token = token;
       } catch (e: any) {
         this.clearAuth();
       } finally {
+        this.isLoading = false;
         this.isReady = true;
       }
     },
     async logout() {
       const { $api } = useNuxtApp();
+      this.isLoading = true;
       try {
         await $api.post("/logout");
       } finally {
+        this.isLoading = false;
         this.clearAuth();
         navigateTo("/login");
       }

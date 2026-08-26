@@ -1,10 +1,7 @@
 export interface MajorModel {
   id: number | null;
-  title: string | null;
-  body: string | null;
-  color_from: string | null;
-  color_to: string | null;
-  icon: string | null;
+  name: string | null;
+  description: string | null;
   updatedAt: string | null;
   users_count: string | null;
 }

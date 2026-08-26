@@ -3,10 +3,12 @@ import AnalyIcon from "../icons/AnalyIcon.vue";
 import CourseIcon from "../icons/CourseIcon.vue";
 import DashboardIcon from "../icons/DashboardIcon.vue";
 import DateIcon from "../icons/DateIcon.vue";
+import LoadingIcon from "../icons/LoadingIcon.vue";
 import MessageIcon from "../icons/MessageIcon.vue";
 import UserAdminIcon from "../icons/UserAdminIcon.vue";
 import UserIcon from "../icons/UserIcon.vue";
 import { markRaw } from "vue";
+import LogoutIcon from "../icons/LogoutIcon.vue";
 const pages = reactive([
   { name: "Dashboard", icon: markRaw(DashboardIcon), route: "/admins" },
   { name: "Users", icon: markRaw(UserIcon), route: "/admins/users" },
@@ -26,6 +28,8 @@ const pages = reactive([
 ]);
 
 const sideBarStore = useSideBarStore();
+
+const authStore = useAuthStore();
 </script>
 
 <template>
@@ -37,7 +41,7 @@ const sideBarStore = useSideBarStore();
       class="px-4 py-2 flex justify-start gap-4 items-center overflow-x-clip w-full"
     >
       <img src="../../assets/svg/LOGO-APP.svg" alt="" class="w-12 h-12" />
-      <div class=" overflow-clip">
+      <div class="overflow-clip">
         <h1 class="text-sm font-bokor">ប្រព័ន្ធគ្រប់គ្រងអតីតនិស្សនិត</h1>
         <p class="text-sm text-gray-400 font-Poppins">Alumni Portal</p>
       </div>
@@ -72,10 +76,22 @@ const sideBarStore = useSideBarStore();
 
     <div class="mt-auto">
       <hr class="border-gray-600" />
+
       <button
-        class="w-full text-gray-400 py-3 px-4 rounded-md hover:bg-primary-dark transition-colors duration-300"
+        type="button"
+        :disabled="authStore.isLoading"
+        @click="authStore.logout"
+        class="flex w-full items-center justify-center gap-3 rounded-md px-4 py-3 text-gray-400 transition-colors duration-300 hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Logout
+        <LoadingIcon v-if="authStore.isLoading" />
+
+        <template v-else>
+          <LogoutIcon class="size-7 shrink-0" />
+
+          <span v-if="sideBarStore.isSide" class="text-sm whitespace-nowrap">
+            Logout
+          </span>
+        </template>
       </button>
     </div>
   </div>
