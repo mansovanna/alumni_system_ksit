@@ -7,17 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 class Major extends Model
 {
     //
-
     protected $table = 'majors';
 
     protected $fillable = [
-        'name',
-        'description'
+        'title',
+        'body',
+        'color_from',
+        'color_to',
+        'icon',
     ];
 
-
-    public function alumnis()
-    {
-        return $this->hasMany(Alumni::class);
+    public function users (){
+        return $this->hasMany(UserInfo::class);
     }
 }

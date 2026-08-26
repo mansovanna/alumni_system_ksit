@@ -13,8 +13,8 @@ definePageMeta({
 });
 
 const formData = reactive({
-  login: "012000001",
-  password: "password",
+  login: "",
+  password: "",
 });
 
 const isPasswordVisible = ref(false);
@@ -55,8 +55,6 @@ const handleSubmit = () => {
     data.append('login', formData.login)
     data.append('password', formData.password)
     authStore.login(data);
-
-    // router.push({name: 'admins'})
   }
 };
 </script>

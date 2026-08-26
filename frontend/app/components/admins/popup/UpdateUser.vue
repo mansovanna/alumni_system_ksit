@@ -1,347 +1,390 @@
 <script setup lang="ts">
-import { useAlumniStore } from "#imports";
 import CloseIcon from "~/components/icons/CloseIcon.vue";
 import SpannerIcon from "~/components/icons/SpannerIcon.vue";
-import type { AlumniModels } from "~/types/alumni.model";
+import type { UserModel } from "~/types/user.model";
 
-/* =========================================================
-   Props & Emits
-========================================================= */
+/* -------------------------------------------------- */
+const userStore = useUserStore();
 
-const alumni = useAlumniStore();
+const prop = defineProps<{ data: UserModel }>();
+/* -------------------------------------------------- */
+/* Options                                              */
+/* -------------------------------------------------- */
+const genders = reactive(["male", "female"]);
 
-const props = defineProps<{
-  data?: AlumniModels;
-}>();
+const majors = useMajorStore();
 
-const emit = defineEmits<{
-  close: [];
-  submitted: [data: any];
-}>();
-
-/* =========================================================
-   Status Options
-========================================================= */
-
-const workStatus = [
-  { status: "employed", title: "Employed" },
-  { status: "unemployed", title: "Unemployed" },
-  { status: "self_employed", title: "Self Employed" },
-  { status: "studying", title: "Studying" },
-  { status: "unknown", title: "Unknown" },
-];
-
-/* =========================================================
-   Form State (Initial Data from Props)
-========================================================= */
-
-const formData = ref({
-  status: props.data?.employment_status || "employed",
-  notes: "",
-});
-
-const isLoading = ref(false);
-const message = ref("");
-const errors = ref<{
-  status?: string;
-  notes?: string;
-}>({});
-
-/* =========================================================
-   Watch Data Property Change
-========================================================= */
-
-watch(
-  () => props.data,
-  (newData) => {
-    if (newData?.employment_status) {
-      formData.value.status = newData.employment_status;
-    }
-  },
-  { immediate: true },
-);
-
-/* =========================================================
-   Alumni Name
-========================================================= */
-
-const alumniName = computed(() => {
-  return (
-    props.data?.user?.name_english || props.data?.user?.name_khmer || "Alumni"
-  );
-});
-
-/* =========================================================
-   Format Date Helper
-========================================================= */
-
-const formatDate = (dateStr?: string | null) => {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return Number.isNaN(d.getTime())
-    ? dateStr
-    : d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+/* -------------------------------------------------- */
+/* Form State                                           */
+/* -------------------------------------------------- */
+type FormData = {
+  name_khmer: string | null;
+  name_english: string | null;
+  gender: string | null;
+  dateOfBirth: string | null;
+  phone: string | null;
+  major: string | null;
+  year: string | null;
+  status: string | null;
+  address: string | null;
+  work_address: string | null;
 };
 
-/* =========================================================
-   Validate & Submit
-========================================================= */
+type FormErrors = Partial<Record<keyof FormData, string>>;
+
+const formData = ref<FormData>({
+  name_khmer: prop.data.name_khmer || null,
+  name_english: prop.data.name_english || null,
+  gender: prop.data.gender || null,
+  dateOfBirth: prop.data.user_infos_one?.date_of_birth || null,
+  phone: prop.data.mobile || null,
+  major: String(prop.data.user_infos_one?.major_id) || null,
+  year: prop.data.user_infos_one?.last_year || null,
+  status: prop.data.user_infos_one?.work || null,
+  address: prop.data.user_infos_one?.address || null,
+  work_address: prop.data.user_infos_one?.work_address || null,
+});
+
+const filterMajorId = computed(() => {
+  return majors.data?.data.find(
+    (e) => e.id == prop.data.user_infos_one?.major_id,
+  );
+});
+const errors = ref<FormErrors>({});
+
+/* -------------------------------------------------- */
+/* Validation                                           */
+/* -------------------------------------------------- */
+const requiredFields: { key: keyof FormErrors; label: string }[] = [
+  { key: "name_khmer", label: "User name is required!" },
+  { key: "name_english", label: "User name is required!" },
+  { key: "gender", label: "Gender is required!" },
+  { key: "dateOfBirth", label: "Date of birth is required!" },
+  { key: "phone", label: "Mobile phone is required!" },
+  { key: "major", label: "Major is required!" },
+  { key: "year", label: "Last year is required!" },
+  { key: "status", label: "Status work is required!" },
+  { key: "address", label: "Address work is required!" },
+];
 
 const validate = () => {
   errors.value = {};
-  message.value = "";
   let hasError = false;
 
-  if (!formData.value.status) {
-    errors.value.status = "Status is required.";
-    hasError = true;
+  for (const field of requiredFields) {
+    const value = formData.value[field.key];
+    if (!value || String(value).trim().length === 0) {
+      errors.value[field.key] = field.label;
+      hasError = true;
+    }
   }
 
   return hasError;
 };
 
+/* -------------------------------------------------- */
+/* Submit                                               */
+/* -------------------------------------------------- */
+const emit = defineEmits(["close", "submitted"]);
+
+const majorActive = ref(null);
+const handleMajor = (data: any) => {
+  formData.value.major = data.id;
+  majorActive.value = data.title;
+};
+
+const isLoading = ref(false);
+const message = ref("");
 const submit = async () => {
   if (validate()) return;
 
+  // emit("submitted", formData.value);
+
   const data = new FormData();
 
-  data.append("employment_status", formData.value.status);
-  data.append("bio", formData.value.notes);
+  data.append("name_khmer", String(formData.value.name_khmer));
+  data.append("name_english", String(formData.value.name_english));
+  data.append("gender", String(formData.value.gender));
+  data.append("date_of_birth", String(formData.value.dateOfBirth));
+  data.append("major_id", String(formData.value.major));
+  data.append("address", String(formData.value.address));
+  data.append("work", String(formData.value.status));
+  data.append("last_year", String(formData.value.year));
+  data.append("mobile", String(formData.value.phone));
+  data.append("work_address", String(formData.value.work_address));
+  // data.append("_method", "PUT");
+  if (prop.data.id) {
+    isLoading.value = true;
+    try {
+      const res = await userStore.updateUser(data, prop.data.id);
 
-  isLoading.value = true;
-
-  try {
-    const res = await alumni.updateStatusAlumni(Number(props.data?.id), data);
-
-    if (res.data && alumni.data?.data) {
-      alumni.data.data = alumni.data.data.map((e) =>
-        e.id === props.data?.id ? { ...e, ...res.data } : e,
-      );
-
-      closeModal();
+      if (userStore.data?.data.data) {
+        userStore.data.data.data = userStore.data?.data.data.map((e) =>
+          e.id === res.data.data.id ? res.data.data : e,
+        );
+      }
+      emit("close");
+    } catch (e: any) {
+      // console.log(e);
+      message.value = e.response?.data;
+    } finally {
+      isLoading.value = false;
     }
-  } catch (e: any) {
-    // console.log(e);
-    message.value = e.response;
-  } finally {
-    isLoading.value = false;
   }
-  // Simulate API Save
-};
-
-const closeModal = () => {
-  emit("close");
 };
 </script>
 
 <template>
-  <!-- Overlay -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-    @click="closeModal"
+    @click="$emit('close')"
+    class="w-full justify-center items-center fixed top-0 bottom-0 right-0 left-0 bg-black/20 z-50 backdrop-blur-xs flex p-4"
   >
-    <!-- Modal Container -->
     <div
-      class="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-xl border border-gray-200"
+      class="w-3/5 max-md:w-full max-lg:w-8/9 max-xl:w-3/4 bg-white rounded-2xl border border-slate-400"
       @click.stop
     >
       <!-- Header -->
-      <div class="border-b border-gray-100 px-6 py-4">
-        <div class="flex items-start justify-between">
-          <div>
-            <h2 class="text-base font-bold text-gray-900">Update Status</h2>
-            <p class="mt-0.5 text-xs text-gray-500">
-              For <span class="font-bold text-gray-900">{{ alumniName }}</span>
-            </p>
-          </div>
-
-          <button
-            type="button"
-            class="text-gray-400 hover:text-gray-600 transition p-1"
-            :disabled="isLoading"
-            @click="closeModal"
-          >
-            <CloseIcon class="w-4 h-4" />
-          </button>
-        </div>
+      <div class="w-full flex justify-between items-center px-3 py-3">
+        <p class="font-Inter text-slate-500">Update Alumni</p>
+        <button
+          @click="$emit('close')"
+          class="flex justify-center items-center rounded-md hover:text-red-500 cursor-pointer"
+        >
+          <CloseIcon />
+        </button>
       </div>
+      <hr class="text-slate-100" />
 
-      <!-- Form Body -->
-      <form @submit.prevent="submit" class="px-6 py-5 space-y-4">
-        <!-- Error Message Banner -->
-        <div
-          v-if="message"
-          class="rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
-        >
-          {{ message }}
-        </div>
-
-        <!-- Current Status Selection -->
-        <div>
-          <label class="mb-1.5 block text-xs font-semibold text-gray-700">
-            Current Status
-          </label>
-
-          <select
-            v-model="formData.status"
-            :disabled="isLoading"
-            class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-800 outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-50"
-            :class="{ 'border-red-500': errors.status }"
-          >
-            <option
-              v-for="item in workStatus"
-              :key="item.status"
-              :value="item.status"
-            >
-              {{ item.title }}
-            </option>
-          </select>
-
-          <p v-if="errors.status" class="mt-1 text-xs text-red-500">
-            {{ errors.status }}
-          </p>
-        </div>
-
-        <!-- Current Employment Info ( dynamic data ) -->
-        <div
-          v-if="props.data?.employment"
-          class="rounded-md border border-gray-100 bg-gray-50 p-3 space-y-1 text-xs text-gray-600"
-        >
-          <div class="font-semibold text-gray-800">
-            {{ props.data.employment.job_title }}
-          </div>
-          <div class="flex items-center justify-between text-[11px]">
-            <span>Location: {{ props.data.employment.location }}</span>
-            <span
-              class="capitalize bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px]"
-            >
-              {{ props.data.employment.employment_type?.replace("_", " ") }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Notes / Comments -->
-        <div>
-          <label class="mb-1.5 block text-xs font-semibold text-gray-700">
-            Notes / Comments
-          </label>
-
-          <textarea
-            v-model="formData.notes"
-            :disabled="isLoading"
-            rows="3"
-            placeholder="Add any relevant details about this status change..."
-            class="w-full resize-none rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-700 outline-none placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-50"
-            :class="{ 'border-red-500': errors.notes }"
-          />
-
-          <p v-if="errors.notes" class="mt-1 text-xs text-red-500">
-            {{ errors.notes }}
-          </p>
-        </div>
-
-        <!-- Recent History Section -->
-        <div>
+      <form @submit.prevent="submit">
+        <div class="w-full flex flex-col gap-2">
           <div
-            class="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400"
+            class="w-full px-4 py-2 flex flex-col gap-2 flex-1 h-auto max-h-[70vh] overflow-y-auto"
           >
-            RECENT HISTORY
-          </div>
-
-          <!-- Active History Display -->
-          <div
-            v-if="props.data?.created_at"
-            class="flex items-center gap-2.5 rounded-md border border-gray-200 bg-gray-50/50 p-3"
-          >
+            <span v-if="message" class="px-4 text-xs text-red-500">{{
+              message
+            }}</span>
             <div
-              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600"
+              class="w-full grid grid-cols-3 gap-3 max-md:grid-cols-1 max-lg:grid-cols-2"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 8v4l2.5 2.5"
+              <!-- User Khmer / Gender -->
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Name Khmer <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.name_khmer"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter name khmer"
+                  :class="
+                    errors.name_khmer ? 'border-red-500' : 'border-slate-300'
+                  "
                 />
-                <circle cx="12" cy="12" r="9" />
-              </svg>
-            </div>
+                <span class="text-xs text-red-500">{{
+                  errors.name_khmer
+                }}</span>
+              </div>
 
-            <div class="min-w-0 flex-1 text-xs">
-              <p class="text-gray-800">
-                Created with status:
-                <span class="font-bold text-gray-900 capitalize">
-                  {{ props.data.employment_status }}
-                </span>
-              </p>
-              <p class="mt-0.5 text-[10px] text-gray-400 font-mono">
-                {{ formatDate(props.data.created_at) }}
-              </p>
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Name English <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.name_english"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter name english"
+                  :class="
+                    errors.name_english ? 'border-red-500' : 'border-slate-300'
+                  "
+                />
+                <span class="text-xs text-red-500">{{
+                  errors.name_english
+                }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Gender <span class="text-red-500">*</span>
+                </label>
+                <select
+                  v-model="formData.gender"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  :class="errors.gender ? 'border-red-500' : 'border-slate-300'"
+                >
+                  <option value="" disabled selected>សូមជ្រើសរើស</option>
+                  <option v-for="g in genders" :key="g" :value="g">
+                    {{ g.charAt(0).toUpperCase() + g.slice(1) }}
+                  </option>
+                </select>
+                <span class="text-xs text-red-500">{{ errors.gender }}</span>
+              </div>
+
+              <!-- Date of Birth / Phone -->
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Date of Birth <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  v-model="formData.dateOfBirth"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  :class="
+                    errors.dateOfBirth ? 'border-red-500' : 'border-slate-300'
+                  "
+                />
+                <span class="text-xs text-red-500">{{
+                  errors.dateOfBirth
+                }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Mobile Phone <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.phone"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="000 - 000 - 0000"
+                  :class="errors.phone ? 'border-red-500' : 'border-slate-300'"
+                />
+                <span class="text-xs text-red-500">{{ errors.phone }}</span>
+              </div>
+
+              <!-- Major / Last Year -->
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Major <span class="text-red-500">*</span>
+                </label>
+                <OptionsOption
+                  class="z-50"
+                  :items="majors.data?.data ?? []"
+                  :title="'Please Select Major'"
+                  :active="majorActive ?? filterMajorId?.title ?? undefined"
+                  :z-index="'z-50'"
+                  @update:active="handleMajor($event)"
+                />
+                <span class="text-xs text-red-500">{{ errors.major }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Last Year <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  v-model="formData.year"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Year"
+                  :class="errors.year ? 'border-red-500' : 'border-slate-300'"
+                />
+                <span class="text-xs text-red-500">{{ errors.year }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Status Work {{ formData.status
+                  }}<span class="text-red-500">*</span>
+                </label>
+                <select
+                  v-model="formData.status"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  :class="errors.status ? 'border-red-500' : 'border-slate-300'"
+                >
+                  <option value="" disabled selected>សូមជ្រើសរើស</option>
+                  <option
+                    v-for="(item, index) in workStatus"
+                    :key="index"
+                    :value="item.status"
+                  >
+                    {{ item.title }}
+                  </option>
+                </select>
+                <span class="text-xs text-red-500">{{ errors.status }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500">
+                  Address Work <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.address"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter address"
+                  :class="
+                    errors.address ? 'border-red-500' : 'border-slate-300'
+                  "
+                />
+                <span class="text-xs text-red-500">{{ errors.address }}</span>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs text-slate-500"> Work Address </label>
+                <input
+                  type="text"
+                  v-model="formData.work_address"
+                  class="w-full px-3 py-2 border placeholder:text-sm placeholder:text-slate-400 rounded-md focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Enter address"
+                  :class="
+                    errors.work_address ? 'border-red-500' : 'border-slate-300'
+                  "
+                />
+                <span class="text-xs text-red-500">{{
+                  errors.work_address
+                }}</span>
+              </div>
             </div>
           </div>
 
-          <div
-            v-else
-            class="rounded-md border border-gray-200 bg-gray-50/50 p-3 text-center text-xs text-gray-400"
-          >
-            No recent status history.
+          <div class="px-4 pb-4 flex items-center justify-end gap-6 mt-4">
+            <button
+              @click="$emit('close')"
+              type="button"
+              class="w-1/8 p-2 bg-red-600 text-white text-sm hover:bg-red-700 cursor-pointer rounded-lg min-w-20"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              :disabled="isLoading"
+              class="w-1/8 flex justify-center disabled:bg-secondary items-center text-sm bg-primary text-white rounded-lg p-2 cursor-pointer hover:bg-primary/80 transition-colors"
+            >
+              <span v-if="!isLoading">Save</span>
+              <div v-else class="font-Inter flex justify-center items-end">
+                <span>Please wating</span>
+                <SpannerIcon />
+              </div>
+            </button>
           </div>
         </div>
       </form>
-
-      <!-- Footer Actions -->
-      <div
-        class="flex items-center justify-end gap-3 border-t border-gray-100 bg-white px-6 py-3.5"
-      >
-        <button
-          type="button"
-          :disabled="isLoading"
-          class="px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:text-slate-900 disabled:opacity-50"
-          @click="closeModal"
-        >
-          Cancel
-        </button>
-
-        <button
-          type="button"
-          :disabled="isLoading"
-          class="flex items-center gap-1.5 rounded-md bg-black px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800 disabled:bg-gray-400"
-          @click="submit"
-        >
-          <template v-if="!isLoading">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-3.5 w-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 002-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-              />
-            </svg>
-            Save Changes
-          </template>
-
-          <template v-else>
-            <SpannerIcon class="w-3.5 h-3.5 animate-spin" />
-            Saving...
-          </template>
-        </button>
-      </div>
     </div>
   </div>
 </template>
+
+<style>
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.fade-text-enter-active,
+.fade-text-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-text-enter-from,
+.fade-text-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+</style>

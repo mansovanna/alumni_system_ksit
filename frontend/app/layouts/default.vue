@@ -9,9 +9,6 @@ const navLinks = [
 ];
 
 const route = useRoute();
-
-const authStore = useAuthStore();
-const avata = useAvatar();
 </script>
 
 <template>
@@ -20,17 +17,15 @@ const avata = useAvatar();
   >
     <!-- Navbar Header -->
     <header
-      class="w-full bg-white border-b border-slate-200 shrink-0 sticky top-0 z-30 flex justify-center items-center"
+      class="w-full bg-white border-b border-slate-200  shrink-0 sticky top-0 z-30 flex justify-center items-center"
     >
-      <div
-        class="max-w-6xl mx-auto w-full px-4 sm:px-8 py-1.5 flex items-center justify-between"
-      >
+      <div class="max-w-6xl mx-auto w-full px-4 sm:px-8 py-1.5 flex items-center justify-between">
         <!-- Brand Logo / Title -->
         <NuxtLink to="/" class="flex items-center gap-2">
           <img
             src="../assets/svg/LOGO-APP2.svg"
             alt="Avatar"
-            class="w-12 h-12 object-center object-cover"
+            class="w-12 h-12  object-center object-cover "
           />
         </NuxtLink>
 
@@ -80,28 +75,12 @@ const avata = useAvatar();
             </svg>
           </NuxtLink>
 
-          <NuxtLink to="/profile">
-            <ClientOnly>
-              <img
-                :src="
-                  authStore.user?.data.user.avatar ??
-                  avata.textToImage(
-                    authStore.user?.data.user.name_english ?? 'User',
-                  )
-                "
-                alt="Profile Avatar"
-                class="w-8 h-8 rounded-full object-cover border border-slate-200 hover:ring-2 hover:ring-successDark transition"
-              />
-
-              <!-- ផ្នែក Loading (Fallback) ការពារកុំឲ្យ UI លោតញ័រពេល Render  -->
-              <template #fallback>
-                <div class="flex items-center gap-2">
-                  <div
-                    class="w-10 h-10 rounded-full bg-gray-200 animate-pulse"
-                  ></div>
-                </div>
-              </template>
-            </ClientOnly>
+          <NuxtLink to="/profile" >
+            <img
+              src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop"
+              alt="Profile Avatar"
+              class="w-8 h-8 rounded-full object-cover border border-slate-200 hover:ring-2 hover:ring-successDark transition"
+            />
           </NuxtLink>
         </div>
       </div>

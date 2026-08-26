@@ -28,7 +28,7 @@ const formData = ref({
   nameKhmer: props.data.name_khmer || "",
   nameEnglish: props.data.name_english || "",
   login: props.data.email || props.data.mobile || "",
-  role: props.data.role.name || "",
+  role: props.data.role || "",
 });
 
 /* -------------------------------------------------------------------------- */
@@ -182,7 +182,9 @@ const closeModal = () => {
           </div>
 
           <div>
-            <h2 class="text-base font-semibold text-slate-800">Edit Staff</h2>
+            <h2 class="text-base font-semibold text-slate-800">
+              Edit Staff
+            </h2>
 
             <p class="mt-0.5 text-xs text-slate-400">
               Update staff account information
@@ -220,7 +222,9 @@ const closeModal = () => {
             </div>
 
             <div>
-              <p class="text-sm font-medium text-red-700">Update failed</p>
+              <p class="text-sm font-medium text-red-700">
+                Update failed
+              </p>
 
               <p class="mt-0.5 text-xs text-red-600">
                 {{ messageError }}
@@ -249,7 +253,9 @@ const closeModal = () => {
               <!-- ====================================================== -->
 
               <div>
-                <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                <label
+                  class="mb-1.5 block text-xs font-medium text-slate-600"
+                >
                   Name Khmer
                   <span class="text-red-500">*</span>
                 </label>
@@ -295,7 +301,10 @@ const closeModal = () => {
                   />
                 </div>
 
-                <p v-if="errors.nameKhmer" class="mt-1.5 text-xs text-red-500">
+                <p
+                  v-if="errors.nameKhmer"
+                  class="mt-1.5 text-xs text-red-500"
+                >
                   {{ errors.nameKhmer }}
                 </p>
               </div>
@@ -305,7 +314,9 @@ const closeModal = () => {
               <!-- ====================================================== -->
 
               <div>
-                <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                <label
+                  class="mb-1.5 block text-xs font-medium text-slate-600"
+                >
                   Name English
                   <span class="text-red-500">*</span>
                 </label>
@@ -362,7 +373,9 @@ const closeModal = () => {
               <!-- ====================================================== -->
 
               <div>
-                <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                <label
+                  class="mb-1.5 block text-xs font-medium text-slate-600"
+                >
                   Email / Mobile
                   <span class="text-red-500">*</span>
                 </label>
@@ -415,7 +428,9 @@ const closeModal = () => {
               <!-- ====================================================== -->
 
               <div>
-                <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                <label
+                  class="mb-1.5 block text-xs font-medium text-slate-600"
+                >
                   Role
                   <span class="text-red-500">*</span>
                 </label>
@@ -454,11 +469,17 @@ const closeModal = () => {
                         : 'border-slate-200 focus:border-primary'
                     "
                   >
-                    <option value="" disabled>Select role</option>
+                    <option value="" disabled>
+                      Select role
+                    </option>
 
-                    <option value="admin">Admin</option>
+                    <option value="admin">
+                      Admin
+                    </option>
 
-                    <option value="staff">Staff</option>
+                    <option value="staff">
+                      Staff
+                    </option>
                   </select>
 
                   <!-- Arrow -->
@@ -501,7 +522,9 @@ const closeModal = () => {
               <div
                 class="flex size-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white"
               >
-                {{ formData.nameEnglish?.charAt(0)?.toUpperCase() || "S" }}
+                {{
+                  formData.nameEnglish?.charAt(0)?.toUpperCase() || "S"
+                }}
               </div>
 
               <div class="min-w-0">

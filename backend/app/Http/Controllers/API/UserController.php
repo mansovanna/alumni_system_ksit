@@ -3,930 +3,334 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLogs;
-use App\Models\Alumni;
-use App\Models\Employments;
-use App\Models\Role;
 use App\Models\User;
+use App\Models\UserInfo;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | LOGIN
-    |--------------------------------------------------------------------------
-    */
+    //
+    public function getMe(Request $request)
+    {
+        $user = $request->user();
+
+
+        return response()->json([
+            'data' => $user->load('userInfo')
+        ]);
+    }
 
     public function login(Request $request)
     {
         $request->validate([
-            'login' => [
-                'required',
-                'string',
-            ],
-            'password' => [
-                'required',
-                'string',
-                'min:6',
-            ],
+            'login' => 'required',
+            'password' => 'required|string|min:6'
         ]);
 
-
-
-        $user = User::with([
-            'role',
-            'alumni',
-        ])
+        $current_user = User::with('userInfo')
             ->where('email', $request->login)
             ->orWhere('mobile', $request->login)
             ->first();
 
 
-        if (!$user) {
+        if (!$current_user) {
             return response()->json([
                 'success' => false,
-                'message' => 'User not found.',
                 'errors' => [
-                    'login' => [
-                        'The email or mobile number is incorrect.',
-                    ],
-                ],
-            ], 401);
+                    'login' => 'Invalid user not found'
+                ]
+            ], 404);
         }
 
-
-
-        if (!Hash::check($request->password, $user->password)) {
+        if ($current_user && !Hash::check($request->password, $current_user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid password.',
                 'errors' => [
-                    'password' => [
-                        'The password is incorrect.',
-                    ],
-                ],
-            ], 401);
+                    'password' => 'Invalid password'
+                ]
+            ], 404);
         }
 
-        if ($user->status !== 'active') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Your account is not active.',
-            ], 403);
-        }
-
-
-        $user->tokens()->delete();
-
-
-        $token = $user
-            ->createToken('mobile-app')
-            ->plainTextToken;
-
-
-
+        // Login success
         return response()->json([
             'success' => true,
-            'message' => 'Login successful.',
-
-            'data' => [
-                'user' => $this->userData($user),
-
-                'token' => $token,
-
-                'token_type' => 'Bearer',
-            ],
+            'message' => 'Login success',
+            'user' => $current_user,
+            'token' => $current_user->createToken('auth_token')->plainTextToken
         ], 200);
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET CURRENT USER
-    |--------------------------------------------------------------------------
-    */
-
-    public function me(Request $request)
-    {
-        $user = $request
-            ->user()
-            ->load([
-                'role',
-                'alumniOne.major',
-                'alumniOne.employment',
-                'alumniOne.eventRegistrations'
-            ]);
-
-
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User retrieved successfully.',
-
-            'data' => [
-                'user' => $this->userData($user),
-            ],
-        ], 200);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOGOUT
-    |--------------------------------------------------------------------------
-    */
-
-    public function logout(Request $request)
-    {
-        $request
-            ->user()
-            ->currentAccessToken()
-            ?->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Logout successful.',
-        ], 200);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOGOUT ALL DEVICES
-    |--------------------------------------------------------------------------
-    */
-
-    public function logoutAll(Request $request)
-    {
-        $request
-            ->user()
-            ->tokens()
-            ->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out from all devices.',
-        ], 200);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | REGISTER ALUMNI
-    |--------------------------------------------------------------------------
-    */
 
     public function register(Request $request)
     {
-        $validated = $request->validate([
-            'name_khmer' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
 
-            'name_english' => [
-                'required',
-                'string',
-                'max:255',
-            ],
+        $request->validate(
+            [
+                'email' => 'required|unique:users,email',
+                'name_english' => 'required|string',
+                'password' => 'required|min:6|confirmed'
+            ]
+        );
 
-            'email' => [
-                'required',
-                'email',
-                'unique:users,email',
-            ],
 
-            'mobile' => [
-                'required',
-                'string',
-                'unique:users,mobile',
-            ],
+        $user = User::create(
+            [
+                'name_english' => $request->input('name_english'),
+                'email' => $request->input('email'),
+                'password' => Hash::make($request->input('password'))
+            ]
+        );
 
-            'password' => [
-                'required',
-                'string',
-                'min:6',
-                'confirmed',
-            ],
-        ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Get Alumni Role
-        |--------------------------------------------------------------------------
-        */
-
-        $role = \App\Models\Role::where(
-            'name',
-            'alumni'
-        )->first();
-
-        if (!$role) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Alumni role not found.',
+                'message' => 'Failed to register user',
             ], 500);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create User
-        |--------------------------------------------------------------------------
-        */
-
-        $user = User::create([
-            'name_khmer' => $validated['name_khmer'] ?? null,
-
-            'name_english' => $validated['name_english'],
-
-            'role_id' => $role->id,
-
-            'email' => $validated['email'],
-
-            'mobile' => $validated['mobile'],
-
-            'status' => 'active',
-
-            'password' => Hash::make(
-                $validated['password']
-            ),
+        $userInfo = UserInfo::create([
+            'user_id' => $user->id
         ]);
-
-        $user->load('role');
-
-        /*
-        |--------------------------------------------------------------------------
-        | Create Token
-        |--------------------------------------------------------------------------
-        */
-
-        $token = $user
-            ->createToken('mobile-app')
-            ->plainTextToken;
-
         return response()->json([
             'success' => true,
-            'message' => 'Registration successful.',
-
-            'data' => [
-                'user' => $this->userData($user),
-
-                'token' => $token,
-
-                'token_type' => 'Bearer',
-            ],
+            'message' => 'Register success',
+            'data' => $user,
         ], 201);
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | DELETE USER
-    |--------------------------------------------------------------------------
-    */
+    public function index(Request $request)
+    {
+        $search = $request->input('search', '');
+        $perPage = $request->input('per_page', 1);
+        $page = $request->input('page', 1);
 
-    public function destroy($id)
+        // filter more
+        $major = $request->input('major', '');
+        $status_work = $request->input('work', null);
+
+        $query = User::with('userInfosOne.major')->where('role', 'alumni');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('mobile', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%")
+                    ->orWhere('name_english', 'LIKE', "%{$search}%")
+                    ->orWhereHas('userInfosOne', function ($sub) use ($search) {
+                        $sub->where('last_year', 'LIKE', "%{$search}%");
+                    });
+            });
+        }
+
+        $major = ($major === null || $major === '' || $major === 'null') ? null : $major;
+        $status_work = ($status_work === null || $status_work === '' || $status_work === 'null') ? null : $status_work;
+
+
+
+        // filter by major
+        if ($major) {
+            $query->whereHas('userInfosOne.major', function ($q) use ($major) {
+                $q->where('id', $major);
+            });
+        }
+
+        // filter by work status (in userInfosOne relation)
+        if ($status_work !== null && $status_work !== '') {
+            $query->whereHas('userInfosOne', function ($q) use ($status_work) {
+                $q->where('work', $status_work);
+            });
+        }
+
+        $users = $query->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page)
+            ->withQueryString();
+
+        return response()->json([
+            'message' => 'Alumni',
+            'data' => $users
+        ]);
+    }
+
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name_english' => 'required|string',
+            'mobile' => 'required|unique:users,mobile',
+            'email' => 'nullable|email|unique:users,email',
+            'gender' => 'nullable|string',
+            'date_of_birth' => 'nullable|date',
+            'major_id' => 'required|integer',
+            'address' => 'nullable|string',
+            'work' => 'nullable|string',
+            'last_year' => 'nullable|string',
+            'work_address' => 'nullable|string',
+            'password' => 'required|min:6|confirmed',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+        ]);
+
+        $file_url = null;
+
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+
+            $fileName = Str::random(20) . '_' . time() . '.' . $file->getClientOriginalExtension();
+
+            $file->move(public_path('uploads'), $fileName);
+
+            $file_url = 'uploads/' . $fileName;
+        }
+
+        $user = User::create([
+            'name_khmer' => $request->input('name_khmer'),
+            'name_english' => $request->input('name_english'),
+            'mobile' => $request->input('mobile'),
+            'email' => $request->input('email'),
+            'role' => $request->input('role', 'alumni'),
+            'status' => $request->input('status', 'pending'),
+            'password' => Hash::make($request->input('password')),
+            'gender' => $request->input('gender', 'female'),
+            'profile' => $file_url,
+        ]);
+
+        UserInfo::create([
+            'user_id' => $user->id,
+            'major_id' => $request->input('major_id'),
+            'date_of_birth' => $request->input('date_of_birth'),
+            'address' => $request->input('address'),
+            'work' => $request->input('work', 'continuing_study'),
+            'work_address' => $request->input('work_address'),
+            'last_year' => $request->input('last_year'),
+        ]);
+
+        return response()->json([
+            'message' => 'Add Alumni',
+            'data' => $user->load('userInfosOne.major'),
+        ], 201);
+    }
+
+
+    public function show($id)
+    {
+        $user = User::with('userInfo')->findOrFail($id);
+
+        if (!$user) {
+            return response()->json(
+                [
+                    'message' => 'Failse curren user'
+                ],
+                404
+            );
+        }
+
+        return response()->json([
+            'message' => 'curren user',
+            'data' => $user
+        ]);
+    }
+
+    public function update(Request $request, $id)
     {
         $user = User::find($id);
 
         if (!$user) {
             return response()->json([
-                'success' => false,
-                'message' => 'User not found.',
+                'message' => 'Failed to find current user',
             ], 404);
         }
 
-        $user->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User deleted successfully.',
-        ], 200);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | FORMAT USER RESPONSE
-    |--------------------------------------------------------------------------
-    */
-
-    private function userData(User $user): array
-    {
-        return [
-            'id' => $user->id,
-
-            'name_khmer' => $user->name_khmer,
-
-            'name_english' => $user->name_english,
-
-            'email' => $user->email,
-
-            'mobile' => $user->mobile,
-
-            'status' => $user->status,
-
-            'avatar' => $user->avatar,
-
-            'role' => $user->role
-                ? [
-                    'id' => $user->role->id,
-                    'name' => $user->role->name,
-                ]
-                : null,
-
-            'alumni' => $user->role->name == 'alumni' ? $user->alumniOne : null,
-        ];
-    }
-
-
-
-
-    /*
-    |------------------------------------------------------------------------------
-    |------------------------------------------------------------------------------
-    */
-
-    public function alumniIndex(Request $request)
-    {
-        $query = Alumni::query()
-            ->with([
-                'user',
-                'major',
-                'employment',
-            ]);
-
-        // 1. Unified Search Input
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('user', function ($u) use ($search) {
-                    $u->where('name_english', 'like', "%{$search}%")
-                        ->orWhere('name_khmer', 'like', "%{$search}%");
-                })
-                    ->orWhere('bio', 'like', "%{$search}%")
-                    ->orWhere('graduation_year', 'like', "%{$search}%"); // Added search by year
-            });
-        }
-
-        // 2. Filter by Major
-        if ($request->filled('major_id') && (int) $request->major_id !== 0) {
-            $query->where('major_id', $request->major_id);
-        }
-
-        // 3. Filter by Employment / Work Status
-        if ($request->filled('employment_status')) {
-            $query->where('employment_status', $request->employment_status);
-        }
-
-
-
-        $alumni = $query->latest()->paginate($request->get('per_page', 20));
-
-        return response()->json([
-            'message' => 'Alumni list retrieved successfully.',
-            'data' => $alumni,
-        ], 200);
-    }
-
-    public function alumniShow($id)
-    {
-        $alumni = Alumni::query()
-            ->with([
-                'user',
-                'major',
-                'employment.company',
-                'eventRegistrations.event',
-            ])
-            ->findOrFail($id);
-
-
-        $statusHistory = ActivityLogs::where('subject_type', Alumni::class)
-            ->where('subject_id', $alumni->id)
-            ->where('log_name', 'employment_status')
-            ->latest()
-            ->get();
-
-        return response()->json([
-            'message' => 'Alumni profile retrieved successfully.',
-            'data' => $alumni,
-        ], 200);
-    }
-
-    public function alumniStore(Request $request)
-    {
-        // =========================================================
-        // 1. Validate
-        // =========================================================
-
+        // validate
         $request->validate([
-            // -----------------------------------------------------
-            // User
-            // -----------------------------------------------------
-            'name_khmer' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'name_english' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            // Email OR Mobile
-            'email' => [
-                'nullable',
-                'email',
-                'unique:users,email',
-                'required_without:mobile',
-            ],
-
-            'mobile' => [
-                'nullable',
-                'string',
-                'max:30',
-                'required_without:email',
-                'unique:users,mobile',
-            ],
-
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-                'confirmed',
-            ],
-
-            // -----------------------------------------------------
-            // Alumni
-            // -----------------------------------------------------
-            'major_id' => [
-                'required',
-                'exists:majors,id',
-            ],
-
-            'graduation_year' => [
-                'required',
-                'integer',
-                'between:1900,2100',
-            ],
-
-            'gpa' => [
-                'nullable',
-                'numeric',
-                'min:0',
-                'max:4',
-            ],
-
-            'gender' => [
-                'required',
-                'string',
-                'in:male,female',
-            ],
-
-            'date_of_birth' => [
-                'nullable',
-                'date',
-            ],
-
-            'address' => [
-                'nullable',
-                'string',
-            ],
-
-            'bio' => [
-                'nullable',
-                'string',
-            ],
-
-            // Optional social links
-            'linkedin_url' => [
-                'nullable',
-                'url',
-            ],
-
-            'facebook_url' => [
-                'nullable',
-                'url',
-            ],
-
-            // -----------------------------------------------------
-            // Employment Status
-            // -----------------------------------------------------
-            'employment_status' => [
-                'required',
-                'string',
-                'in:employed,unemployed,self_employed,studying,unknown',
-            ],
-
-            // -----------------------------------------------------
-            // Employment
-            //
-            // All fields are OPTIONAL because:
-            // Admin does not necessarily know the alumni's
-            // employment details.
-            //
-            // Alumni can complete these later.
-            // -----------------------------------------------------
-            'company_id' => [
-                'nullable',
-                'exists:companies,id',
-            ],
-
-            'job_title' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'employment_type' => [
-                'nullable',
-                'string',
-                'in:full_time,part_time,contract,internship,freelance',
-            ],
-
-            'industry' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'location' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'salary_range' => [
-                'nullable',
-                'string',
-                'max:100',
-            ],
-
-            'start_date' => [
-                'nullable',
-                'date',
-            ],
-
-            'end_date' => [
-                'nullable',
-                'date',
-                'after_or_equal:start_date',
-            ],
-
-            'is_current' => [
-                'nullable',
-                'boolean',
-            ],
-
-            // -----------------------------------------------------
-            // Profile Image
-            // -----------------------------------------------------
-            'image' => [
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png',
-                'max:5120',
-            ],
+            'name_english' => 'required|string',
+            'name_khmer' => 'nullable|string',
+            'gender' => 'nullable|string',
+            'date_of_birth' => 'nullable|string',
+            'major_id' => 'required|integer',
+            'address' => 'nullable|string',
+            'work' => 'nullable|string',
+            'work_address' => 'nullable|string',
+            'mobile' => ['nullable', 'string', Rule::unique('users', 'mobile')->ignore($user->id)],
+            'email' => ['nullable', 'email', Rule::unique('users', 'email')->ignore($user->id)],
         ]);
 
-        // =========================================================
-        // 2. Find Alumni Role
-        // =========================================================
-
-        // =========================================================
-        // 2. Find Alumni Role
-        // =========================================================
-
-        $role = Role::where('name', 'alumni')
-            ->where('guard_name', 'web')
-            ->first();
-
-        if (!$role) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Alumni role not found.',
-            ], 404);
-        }
-
-        // =========================================================
-        // 3. Handle Image Upload
-        // =========================================================
-
-        $imagePath = null;
-
-        if ($request->hasFile('image')) {
-
-            $image = $request->file('image');
-
-            // Make sure directory exists
-            $uploadDirectory = public_path('uploads/alumni');
-
-            if (!is_dir($uploadDirectory)) {
-                mkdir($uploadDirectory, 0755, true);
-            }
-
-            $filename = uniqid('alumni_')
-                . '.'
-                . $image->getClientOriginalExtension();
-
-            $image->move(
-                $uploadDirectory,
-                $filename
-            );
-
-            $imagePath = 'uploads/alumni/' . $filename;
-        }
-
-        // =========================================================
-        // 4. Create User + Alumni + Employment
-        // =========================================================
-
-        DB::beginTransaction();
-
-        try {
-
-            // -----------------------------------------------------
-            // Create User
-            // -----------------------------------------------------
-
-            $user = User::create([
-                'name_khmer' => $request->name_khmer,
-                'name_english' => $request->name_english,
-
-                'email' => $request->filled('email')
-                    ? $request->email
-                    : null,
-
-                'mobile' => $request->filled('mobile')
-                    ? $request->mobile
-                    : null,
-
-                'password' => Hash::make($request->password),
-
-                'role_id' => $role->id,
-
-                'status' => 'active',
-            ]);
-
-            // -----------------------------------------------------
-            // Create Alumni
-            // -----------------------------------------------------
-
-            $alumni = Alumni::create([
-                'user_id' => $user->id,
-
-                'major_id' => $request->major_id,
-
-                'graduation_year' => $request->graduation_year,
-
-                'gpa' => $request->gpa,
-
-                'gender' => $request->gender,
-
-                'dob' => $request->date_of_birth,
-
-                'address' => $request->address,
-
-                'bio' => $request->bio,
-
-                'linkedin_url' => $request->linkedin_url,
-
-                'facebook_url' => $request->facebook_url,
-
-                'profile_photo' => $imagePath,
-
-                'employment_status' => $request->employment_status,
-            ]);
-
-            // -----------------------------------------------------
-            // Create Employment
-            //
-            // Only create if at least one employment field
-            // has been provided.
-            //
-            // This allows admin to create an "employed" alumni
-            // without knowing company/job information yet.
-            // -----------------------------------------------------
-
-            $hasEmploymentData =
-                $request->filled('company_id') ||
-                $request->filled('job_title') ||
-                $request->filled('employment_type') ||
-                $request->filled('industry') ||
-                $request->filled('location') ||
-                $request->filled('salary_range') ||
-                $request->filled('start_date') ||
-                $request->filled('end_date') ||
-                $request->boolean('is_current');
-
-            if (
-                $request->employment_status === 'employed'
-                && $hasEmploymentData
-            ) {
-
-                Employments::create([
-                    'alumni_id' => $alumni->id,
-
-                    // Optional
-                    'company_id' => $request->company_id,
-
-                    'job_title' => $request->job_title,
-
-                    'employment_type' => $request->employment_type,
-
-                    'industry' => $request->industry,
-
-                    'location' => $request->location,
-
-                    'salary_range' => $request->salary_range,
-
-                    'start_date' => $request->start_date,
-
-                    'end_date' => $request->boolean('is_current')
-                        ? null
-                        : $request->end_date,
-
-                    'is_current' => $request->boolean('is_current'),
-                ]);
-            }
-
-            // -----------------------------------------------------
-            // Commit
-            // -----------------------------------------------------
-
-            DB::commit();
-
-            // =====================================================
-            // 5. Load Relationships
-            // =====================================================
-
-            $alumni->load([
-                'user.role',
-                'major',
-                'employment',
-            ]);
-
-            // =====================================================
-            // 6. Response
-            // =====================================================
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Alumni created successfully.',
-                'data' => $alumni,
-            ], 201);
-        } catch (\Throwable $e) {
-
-            // -----------------------------------------------------
-            // Rollback
-            // -----------------------------------------------------
-
-            DB::rollBack();
-
-            // -----------------------------------------------------
-            // Delete uploaded image if transaction failed
-            // -----------------------------------------------------
-
-            if (
-                $imagePath &&
-                file_exists(public_path($imagePath))
-            ) {
-                unlink(public_path($imagePath));
-            }
-
-            // -----------------------------------------------------
-            // Error response
-            // -----------------------------------------------------
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create alumni.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    public function alumniUpdate(Request $request, $id) {}
-
-    /*
-    |---------------------------------------
-    |---------------------------------------
-    */
-
-
-    public function alumniUpdateState(Request $request, $id)
-    {
-        // 1. Find Alumni Record
-        $alumni = Alumni::with([
-            'user.role',
-            'major',
-            'employment',
-        ])->find($id);
-
-        if (!$alumni) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Alumni not found.'
-            ], 404);
-        }
-
-        // 2. Validate Input Data
-        $validator = Validator::make($request->all(), [
-            'employment_status' => 'required|string|in:employed,unemployed,self_employed,studying,unknown',
-            'bio' => 'nullable|string',
-            'notes' => 'nullable|string',
+        // update user
+        $user->update([
+            'name_khmer' => $request->input('name_khmer', $user->name_khmer),
+            'name_english' => $request->input('name_english'),
+            'mobile' => $request->input('mobile', $user->mobile),
+            'email' => $request->input('email', $user->email),
+            'gender' => $request->input('gender', $user->gender),
+            'role' => $request->input('role', $user->role),
+            'status' => $request->input('status', $user->status),
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validation failed.',
-                'errors' => $validator->errors()
-            ], 422);
-        }
+        // update
+        UserInfo::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'major_id' => $request->input('major_id'),
+                'date_of_birth' => $request->input('date_of_birth'),
+                'address' => $request->input('address'),
+                'work' => $request->input('work'),
+                'work_address' => $request->input('work_address'),
+                'last_year' => $request->input('last_year'),
+            ]
+        );
 
-        // 3. Update Record using Transaction
-        try {
-            DB::beginTransaction();
-
-            $alumni->update([
-                'employment_status' => $request->employment_status,
-                'bio' => $request->bio ?? $alumni->bio,
-            ]);
-
-            // (Optional) បើសិនជាអ្នកមាន table សម្រាប់រក្សាទុក History
-            /*
-            if ($request->filled('notes')) {
-                $alumni->statusHistories()->create([
-                    'status' => $request->employment_status,
-                    'notes' => $request->notes,
-                    'changed_by' => auth()->user()->name ?? 'System',
-                ]);
-            }
-            */
-
-            DB::commit();
-
-            // 4. Return Updated Data Response
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Alumni status updated successfully.',
-                'data' => $alumni->fresh([
-                    'user.role',
-                    'major',
-                    'employment'
-                ])
-            ], 200);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to update alumni status.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'Update success',
+            'data' => $user->load('userInfosOne.major'),
+        ]);
     }
 
 
-    public function alumniDestroy($id)
+    public function updateStatus(Request $request, $id)
     {
-        try {
-            $alumni = Alumni::find($id);
+        $request->validate([
+            'status' => 'required|string',
+        ]);
 
-            if (!$alumni) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Alumni not found.',
-                ], 404);
-            }
+        $user = User::find($id);
 
-            $user = $alumni->user;
-
-            $alumni->delete();
-
-            if ($user) {
-                $user->delete();
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Alumni deleted successfully.',
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete alumni.',
-                'error' => $e->getMessage(),
-            ], 500);
+        if ($user) {
+            $user->update([
+                'status' => $request->input('status', 'pending'),
+            ]);
         }
+
+        return response()->json([
+            'message' => 'Status update success',
+            'data' => $user->load('userInfosOne.major'),
+        ]);
+    }
+
+    // delete
+    public function destroy($id)
+    {
+        $user = User::find($id)->delete();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Failse delete',
+            ], 401);
+        }
+        return response()->json([
+            'message' => 'Delete success',
+        ], 204);
+    }
+
+
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logouot scuccess',
+        ], 404);
     }
 }

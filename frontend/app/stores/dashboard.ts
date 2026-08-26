@@ -1,55 +1,61 @@
-import type { DashboardOverviewResponse } from "~/types/dashboard";
+import type { ChartByWorkModel } from "~/types/chartByWorkStatus";
+import type { ChartByYearModel } from "~/types/chartByYear";
+import type { DashBoard } from "~/types/dashboard";
 
 export const useDashStore = defineStore("dash", {
   state: () => ({
-    data: null as DashboardOverviewResponse | null,
+    data: null as DashBoard | null,
+    chartWorks: null as ChartByWorkModel | null,
+    chartYears: null as ChartByYearModel | null,
     isLoading: false,
+    isLoadingByWork: false,
     isLoadingByYear: false,
-    error: null as unknown,
   }),
-
   getters: {
-    chartWorks: (state) => state.data?.data?.summary ?? {},
-
-    chartYears: (state) =>
-      state.data?.data?.employment_by_year ?? [],
-
-    employmentTrend: (state) =>
-      state.data?.data?.employment_rate_trend ?? [],
+    loading: (state) => state.isLoading,
   },
 
   actions: {
-    async getDash(
-      filters = {
-        year: "all",
-        major: "all",
-      },
-    ) {
+    async getDash() {
       const { $api } = useNuxtApp();
-
       this.isLoading = true;
-      this.isLoadingByYear = true;
-      this.error = null;
 
       try {
-        const res = await $api.get("/dashboard", {
-          params: filters,
-        });
+        const res = await $api.get("/admin/dashboard");
 
-        // IMPORTANT:
-        // API response = { success, message, data }
-        this.data = res.data;
-
-        console.log("Dashboard API:", res.data);
-      } catch (e: any) {
-        this.error = e;
-
-        console.error(
-          "Dashboard API Error:",
-          e?.response?.data ?? e,
-        );
+        // console.log(res);
+        this.data = res.data.data;
+      } catch (e) {
+        console.log(e);
       } finally {
         this.isLoading = false;
+      }
+    },
+
+    async chartByWorkStatus() {
+      const { $api } = useNuxtApp();
+      this.isLoadingByWork = true;
+      try {
+        const res = await $api.get("/admin/chart-by-work-status");
+
+        this.chartWorks = res.data;
+      } catch (e) {
+        console.log(e);
+      } finally {
+        this.isLoadingByWork = false;
+      }
+    },
+
+    async chartByYears() {
+      const { $api } = useNuxtApp();
+      this.isLoadingByYear = true;
+      try {
+        const res = await $api.get("/admin/chart-by-year");
+
+        this.chartYears = res.data;
+      } catch (e) {
+        console.log(e);
+      } finally {
         this.isLoadingByYear = false;
       }
     },

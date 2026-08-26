@@ -1,9 +1,9 @@
 import type { MessageModel } from "~/types/message.response.model";
-import type { NotificationADResponseAPI } from "~/types/notification";
+import type { ReponseAPIPagination } from "~/types/reponse.api.pagination.model";
 
 export const useMessageStore = defineStore("message", {
   state: () => ({
-    data: null as NotificationADResponseAPI | null,
+    data: null as ReponseAPIPagination<MessageModel> | null,
     isLoading: false,
     search: "",
     perPage: 15,
@@ -16,7 +16,7 @@ export const useMessageStore = defineStore("message", {
       this.isLoading = true;
 
       try {
-        const res = await $api.get("/messages", {
+        const res = await $api.get("/admin/message", {
           params: {
             search: this.search,
             per_page: this.perPage,
@@ -32,22 +32,15 @@ export const useMessageStore = defineStore("message", {
       }
     },
 
-    getMessageById(id: number){
-
-      const { $api } = useNuxtApp();
-
-       return $api.get(`/messages/${id}`, )
-    },
-
     addMessage(data: FormData) {
       const { $api } = useNuxtApp();
-      return $api.post("/messages", data);
+      return $api.post("/admin/message", data);
     },
 
     updateMessage(id: number, data: FormData) {
       const { $api } = useNuxtApp();
 
-      return $api.put(`/messages/${id}`, data, {
+      return $api.put(`/admin/message/${id}`, data, {
         headers: {
           "Content-Type": "application/json",
         },
@@ -57,7 +50,7 @@ export const useMessageStore = defineStore("message", {
     deleteMessage(id: number) {
       const { $api } = useNuxtApp();
 
-      return $api.delete(`/messages/${id}`);
+      return $api.delete(`/admin/message/${id}`);
     },
   },
 });

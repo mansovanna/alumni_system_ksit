@@ -9,7 +9,6 @@ import SpannerIcon from "~/components/icons/SpannerIcon.vue";
 import LoadingIcon from "~/components/icons/LoadingIcon.vue";
 
 definePageMeta({
-  middleware: ["auth", "admin"],
   layout: "admin",
 });
 
@@ -84,9 +83,9 @@ const handleDelete = async (id: number) => {
   try {
     const res = await majorStore.deleteMajor(id);
 
-    if (res.status === 200) {
-      if (majorStore.majors?.data) {
-        majorStore.majors.data = majorStore.majors.data.filter(
+    if (res.status === 204) {
+      if (majorStore.majors?.data?.data) {
+        majorStore.majors.data.data = majorStore.majors.data.data.filter(
           (item) => item.id !== id,
         );
       }
@@ -266,9 +265,9 @@ onMounted(() => {
             <span class="size-2 rounded-full bg-emerald-500"></span>
 
             <span class="text-xs font-medium text-slate-500">
-              {{ majorStore.majors.pagination.total ?? 0 }}
+              {{ majorStore.majors.data.total ?? 0 }}
               {{
-                (majorStore.majors.pagination.total ?? 0) === 1 ? "major" : "majors"
+                (majorStore.majors.data.total ?? 0) === 1 ? "major" : "majors"
               }}
             </span>
           </div>
@@ -300,8 +299,9 @@ onMounted(() => {
       <!-- ================================================================
            Loading Skeleton
       ================================================================= -->
+
       <div
-        v-if="majorStore.isLoading && !majorStore.majors?.data"
+        v-if="majorStore.isLoading && !majorStore.majors?.data?.data"
         class="p-5"
       >
         <div
@@ -328,10 +328,10 @@ onMounted(() => {
       ================================================================= -->
 
       <div
-        v-else-if="majorStore.majors?.data?.length"
+        v-else-if="majorStore.majors?.data?.data?.length"
         class="w-full overflow-x-auto"
       >
-        <table class="w-full min-w-250">
+        <table class="w-full min-w-[1000px]">
           <!-- Head -->
 
           <thead>
@@ -345,13 +345,31 @@ onMounted(() => {
               <th
                 class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
               >
-                Name
+                Title
               </th>
 
               <th
                 class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
               >
-                Description
+                Body
+              </th>
+
+              <th
+                class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
+              >
+                Color From
+              </th>
+
+              <th
+                class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
+              >
+                Color To
+              </th>
+
+              <th
+                class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
+              >
+                Icon
               </th>
 
               <th
@@ -366,7 +384,7 @@ onMounted(() => {
 
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="(item, index) in majorStore.majors.data"
+              v-for="(item, index) in majorStore.majors.data.data"
               :key="index"
               class="group hover:bg-slate-50/80 transition-colors duration-150"
             >
@@ -374,8 +392,8 @@ onMounted(() => {
 
               <td class="px-5 py-4 text-sm text-slate-400 font-medium">
                 {{
-                  ((majorStore.majors.pagination.current_page ?? 1) - 1) *
-                    (Number(majorStore.majors.pagination.per_page) ?? 10) +
+                  ((majorStore.majors.data.current_page ?? 1) - 1) *
+                    (Number(majorStore.majors.data.per_page) ?? 10) +
                   index +
                   1
                 }}
@@ -388,12 +406,12 @@ onMounted(() => {
                   <div
                     class="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm"
                   >
-                    {{ item.name?.charAt(0)?.toUpperCase() ?? "M" }}
+                    {{ item.title?.charAt(0)?.toUpperCase() ?? "M" }}
                   </div>
 
                   <div>
                     <p class="text-sm font-semibold text-slate-700">
-                      {{ item.name ?? "N/A" }}
+                      {{ item.title ?? "N/A" }}
                     </p>
 
                     <p class="text-xs text-slate-400">Major #{{ item.id }}</p>
@@ -406,10 +424,77 @@ onMounted(() => {
               <td class="px-4 py-4 max-w-xs">
                 <p
                   class="text-sm text-slate-500 truncate"
-                  :title="item.description ?? ''"
+                  :title="item.body ?? ''"
                 >
-                  {{ item.description ?? "N/A" }}
+                  {{ item.body ?? "N/A" }}
                 </p>
+              </td>
+
+              <!-- Color From -->
+
+              <td class="px-4 py-4">
+                <div
+                  class="inline-flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100"
+                >
+                  <span
+                    class="size-6 rounded-md border border-white shadow-sm ring-1 ring-slate-200"
+                    :style="{
+                      backgroundColor: item.color_from ?? 'transparent',
+                    }"
+                  ></span>
+
+                  <span
+                    class="text-xs font-medium"
+                    :style="{
+                      color: item.color_from ?? 'transparent',
+                    }"
+                  >
+                    {{ item.color_from ?? "N/A" }}
+                  </span>
+                </div>
+              </td>
+
+              <!-- Color To -->
+
+              <td class="px-4 py-4">
+                <div
+                  class="inline-flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100"
+                >
+                  <span
+                    class="size-6 rounded-md border border-white shadow-sm ring-1 ring-slate-200"
+                    :style="{
+                      backgroundColor: item.color_to ?? 'transparent',
+                    }"
+                  ></span>
+
+                  <span
+                    class="text-xs font-medium"
+                    :style="{
+                      color: item.color_to ?? 'transparent',
+                    }"
+                  >
+                    {{ item.color_to ?? "N/A" }}
+                  </span>
+                </div>
+              </td>
+
+              <!-- Icon -->
+
+              <td class="px-4 py-4">
+                <div class="inline-flex items-center gap-2">
+                  <div
+                    class="size-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors"
+                  >
+                    <HugeiconsIcon
+                      :icon="icons.find((i) => i.name === item.icon)?.icon"
+                      class="size-5"
+                    />
+                  </div>
+
+                  <span class="text-xs font-medium text-slate-600 capitalize">
+                    {{ item.icon ?? "N/A" }}
+                  </span>
+                </div>
               </td>
 
               <!-- Actions -->
@@ -456,7 +541,7 @@ onMounted(() => {
 
       <div
         v-else-if="
-          !majorStore.isLoading && majorStore.majors?.data?.length === 0
+          !majorStore.isLoading && majorStore.majors?.data?.data?.length === 0
         "
         class="px-5 py-16 flex flex-col items-center justify-center text-center"
       >
@@ -488,7 +573,7 @@ onMounted(() => {
       ================================================================= -->
 
       <div
-        v-if="majorStore.isLoading && majorStore.majors?.data"
+        v-if="majorStore.isLoading && majorStore.majors?.data?.data"
         class="w-full py-4 flex justify-center items-center border-t border-slate-100"
       >
         <div class="flex items-center gap-2 text-sm text-slate-400">
@@ -505,13 +590,13 @@ onMounted(() => {
       <div
         v-if="
           majorStore.majors?.data &&
-          Number(majorStore.majors.pagination.last_page) > 1
+          Number(majorStore.majors.data.last_page) > 1
         "
         class="px-5 py-4 border-t border-slate-100 bg-slate-50/40"
       >
         <Pagination
-          :current-page="majorStore.majors?.pagination?.current_page ?? 1"
-          :last-page="majorStore.majors?.pagination?.last_page ?? 1"
+          :current-page="majorStore.majors?.data?.current_page ?? 1"
+          :last-page="majorStore.majors?.data?.last_page ?? 1"
           @change="pageDirect"
         />
       </div>

@@ -1,9 +1,9 @@
-import type { ApiResponsePagination } from "~/types/reponse.api.pagination.model";
+import type { ReponseAPIPagination } from "~/types/reponse.api.pagination.model";
 import type { UserModel } from "~/types/user.model";
 
 export const useUserStore = defineStore("user", {
   state: () => ({
-    data: null as ApiResponsePagination<UserModel> | null,
+    data: null as ReponseAPIPagination<UserModel> | null,
 
     isLoading: false,
     search: "",
@@ -58,7 +58,7 @@ export const useUserStore = defineStore("user", {
 
     addUser(data: FormData) {
       const { $api } = useNuxtApp();
-      return $api.post("/alumni", data, {
+      return $api.post("/admin/user", data, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -66,7 +66,7 @@ export const useUserStore = defineStore("user", {
     },
     updateUser(data: FormData, id: number) {
       const { $api } = useNuxtApp();
-      return $api.put(`/alumni/${id}`, data, {
+      return $api.put(`/admin/user/${id}`, data, {
         headers: {
           "Content-Type": "application/json",
         },

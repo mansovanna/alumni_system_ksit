@@ -1,11 +1,10 @@
-import { defineStore } from "pinia";
 import type { MajorModel, MajorResponseAPI } from "~/types/major";
-import type { ApiResponsePagination } from "~/types/reponse.api.pagination.model";
+import type { ReponseAPIPagination } from "~/types/reponse.api.pagination.model";
 
 export const useMajorStore = defineStore("major", {
   state: () => ({
     data: null as MajorResponseAPI | null,
-    majors: null as ApiResponsePagination<MajorModel> | null,
+    majors: null as ReponseAPIPagination<MajorModel> | null,
     isLoading: false,
     search: "",
     perPage: 15,
@@ -17,7 +16,7 @@ export const useMajorStore = defineStore("major", {
       const { $api } = useNuxtApp();
 
       try {
-        const res = await $api.get("/major-items");
+        const res = await $api.get("/depament-major");
         this.data = res.data;
         // console.log(this.data)
       } catch (e) {
@@ -29,7 +28,7 @@ export const useMajorStore = defineStore("major", {
       const { $api } = useNuxtApp();
       this.isLoading = true;
       try {
-        const res = $api.get("/majors", {
+        const res = $api.get("/admin/major", {
           params: {
             search: this.search,
             per_page: this.perPage,
@@ -46,12 +45,12 @@ export const useMajorStore = defineStore("major", {
 
     addMajor(data: FormData) {
       const { $api } = useNuxtApp();
-      return $api.post("/majors", data);
+      return $api.post("/admin/major", data);
     },
 
     updateMajor(id: number, data: FormData) {
       const { $api } = useNuxtApp();
-      return $api.put(`/majors/${id}`, data, {
+      return $api.put(`/admin/major/${id}`, data, {
         headers: {
           "Content-Type": "application/json",
         },
@@ -60,7 +59,7 @@ export const useMajorStore = defineStore("major", {
 
     deleteMajor(id: number) {
       const { $api } = useNuxtApp();
-      return $api.delete(`/majors/${id}`);
+      return $api.delete(`/admin/major/${id}`);
     },
   },
 });

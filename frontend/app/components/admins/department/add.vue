@@ -76,20 +76,20 @@ const validate = () => {
     hasError = true;
   }
 
-  // if (!formData.value.color_from) {
-  //   errors.value.color_from = "Color is required.";
-  //   hasError = true;
-  // }
+  if (!formData.value.color_from) {
+    errors.value.color_from = "Color is required.";
+    hasError = true;
+  }
 
-  // if (!formData.value.color_to) {
-  //   errors.value.color_to = "Color is required.";
-  //   hasError = true;
-  // }
+  if (!formData.value.color_to) {
+    errors.value.color_to = "Color is required.";
+    hasError = true;
+  }
 
-  // if (!formData.value.icon) {
-  //   errors.value.icon = "Icon is required.";
-  //   hasError = true;
-  // }
+  if (!formData.value.icon) {
+    errors.value.icon = "Icon is required.";
+    hasError = true;
+  }
 
   return hasError;
 };
@@ -105,11 +105,11 @@ const submit = async () => {
 
   const data = new FormData();
 
-  data.append("name", formData.value.title.trim());
-  data.append("description", formData.value.body.trim());
-  // data.append("color_from", formData.value.color_from);
-  // data.append("color_to", formData.value.color_to);
-  // data.append("icon", formData.value.icon);
+  data.append("title", formData.value.title.trim());
+  data.append("body", formData.value.body.trim());
+  data.append("color_from", formData.value.color_from);
+  data.append("color_to", formData.value.color_to);
+  data.append("icon", formData.value.icon);
 
   isLoading.value = true;
 
@@ -118,8 +118,8 @@ const submit = async () => {
 
     const newMajor = res.data?.data;
 
-    if (newMajor && majorStore.majors?.data) {
-      majorStore.majors.data.unshift(newMajor);
+    if (newMajor && majorStore.majors?.data?.data) {
+      majorStore.majors.data.data.unshift(newMajor);
     }
 
     emit("submitted", newMajor);
@@ -128,7 +128,8 @@ const submit = async () => {
     const serverErrors = e?.response?.data?.errors;
 
     messageError.value =
-      e?.response?.data?.message || "Something went wrong. Please try again.";
+      e?.response?.data?.message ||
+      "Something went wrong. Please try again.";
 
     if (serverErrors) {
       errors.value.title = serverErrors?.title?.[0] ?? "";
@@ -164,6 +165,7 @@ const closeModal = () => {
     class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm"
     @click="closeModal"
   >
+
     <!-- ================================================================
          Modal
     ================================================================= -->
@@ -172,13 +174,19 @@ const closeModal = () => {
       class="relative w-full max-w-2xl max-h-[92vh] overflow-hidden bg-white rounded-2xl shadow-2xl shadow-slate-900/20 border border-slate-200"
       @click.stop
     >
+
       <!-- ================================================================
            Header
       ================================================================= -->
 
-      <div class="px-6 py-5 border-b border-slate-100 bg-white">
+      <div
+        class="px-6 py-5 border-b border-slate-100 bg-white"
+      >
+
         <div class="flex items-start justify-between gap-4">
+
           <div class="flex items-center gap-3">
+
             <!-- Icon -->
 
             <div
@@ -190,14 +198,21 @@ const closeModal = () => {
             <!-- Title -->
 
             <div>
-              <h2 class="text-base font-semibold text-slate-800">
+
+              <h2
+                class="text-base font-semibold text-slate-800"
+              >
                 Add New Major
               </h2>
 
-              <p class="text-xs text-slate-400 mt-1">
+              <p
+                class="text-xs text-slate-400 mt-1"
+              >
                 Create a new academic major or department.
               </p>
+
             </div>
+
           </div>
 
           <!-- Close -->
@@ -210,7 +225,9 @@ const closeModal = () => {
           >
             <CloseIcon class="size-5" />
           </button>
+
         </div>
+
       </div>
 
       <!-- ================================================================
@@ -221,13 +238,16 @@ const closeModal = () => {
         @submit.prevent="submit"
         class="overflow-y-auto max-h-[calc(92vh-145px)]"
       >
+
         <div class="px-6 py-5 space-y-5">
+
           <!-- Server Error -->
 
           <div
             v-if="messageError"
             class="flex items-start gap-3 p-3.5 rounded-xl border border-red-200 bg-red-50 text-red-600"
           >
+
             <div
               class="size-5 shrink-0 rounded-full bg-red-100 flex items-center justify-center text-xs font-bold"
             >
@@ -237,6 +257,7 @@ const closeModal = () => {
             <p class="text-sm">
               {{ messageError }}
             </p>
+
           </div>
 
           <!-- ============================================================
@@ -244,19 +265,30 @@ const closeModal = () => {
           ============================================================= -->
 
           <div>
-            <div class="flex items-center gap-2 mb-3">
-              <div class="size-1.5 rounded-full bg-primary"></div>
 
-              <h3 class="text-sm font-semibold text-slate-700">
+            <div class="flex items-center gap-2 mb-3">
+
+              <div
+                class="size-1.5 rounded-full bg-primary"
+              ></div>
+
+              <h3
+                class="text-sm font-semibold text-slate-700"
+              >
                 Basic Information
               </h3>
+
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
               <!-- Title -->
 
               <div class="md:col-span-2">
-                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+
+                <label
+                  class="block text-xs font-medium text-slate-600 mb-1.5"
+                >
                   Major / Department Name
                   <span class="text-red-500">*</span>
                 </label>
@@ -274,15 +306,22 @@ const closeModal = () => {
                   "
                 />
 
-                <p v-if="errors.title" class="mt-1.5 text-xs text-red-500">
+                <p
+                  v-if="errors.title"
+                  class="mt-1.5 text-xs text-red-500"
+                >
                   {{ errors.title }}
                 </p>
+
               </div>
 
               <!-- Body -->
 
               <div class="md:col-span-2">
-                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+
+                <label
+                  class="block text-xs font-medium text-slate-600 mb-1.5"
+                >
                   Description
                   <span class="text-red-500">*</span>
                 </label>
@@ -300,19 +339,28 @@ const closeModal = () => {
                 ></textarea>
 
                 <div class="flex justify-between mt-1.5">
-                  <p v-if="errors.body" class="text-xs text-red-500">
+
+                  <p
+                    v-if="errors.body"
+                    class="text-xs text-red-500"
+                  >
                     {{ errors.body }}
                   </p>
 
-                  <span v-else class="text-xs text-slate-400">
+                  <span
+                    v-else
+                    class="text-xs text-slate-400"
+                  >
                     Add a short description for this major.
                   </span>
+
                 </div>
+
               </div>
 
               <!-- Icon -->
 
-              <!-- <div class="md:col-span-2">
+              <div class="md:col-span-2">
 
                 <label
                   class="block text-xs font-medium text-slate-600 mb-1.5"
@@ -339,8 +387,10 @@ const closeModal = () => {
                   {{ errors.icon }}
                 </p>
 
-              </div> -->
+              </div>
+
             </div>
+
           </div>
 
           <!-- ============================================================
@@ -348,7 +398,8 @@ const closeModal = () => {
           ============================================================= -->
 
           <div>
-            <!-- <div class="flex items-center justify-between mb-3">
+
+            <div class="flex items-center justify-between mb-3">
 
               <div class="flex items-center gap-2">
 
@@ -370,18 +421,18 @@ const closeModal = () => {
                 Click a color to change
               </span>
 
-            </div> -->
+            </div>
 
             <!-- Preview -->
 
-            <!-- <div
+            <div
               class="relative h-24 rounded-xl overflow-hidden border border-slate-200 shadow-inner"
               :style="{
                 backgroundImage: `linear-gradient(110deg, ${formData.color_from}, ${formData.color_to})`,
               }"
-            > -->
+            >
 
-            <!-- <div
+              <div
                 class="absolute inset-0 bg-white/5"
               ></div>
 
@@ -395,9 +446,11 @@ const closeModal = () => {
                   Gradient Preview
                 </div>
 
-              </div> -->
+              </div>
 
-            <!-- <label
+              <!-- From -->
+
+              <label
                 class="absolute left-3 top-3 flex items-center gap-2 cursor-pointer group"
               >
 
@@ -414,9 +467,10 @@ const closeModal = () => {
                   class="sr-only"
                 />
 
-              </label> -->
+              </label>
 
-            <!-- 
+              <!-- To -->
+
               <label
                 class="absolute right-3 top-3 flex items-center gap-2 cursor-pointer group"
               >
@@ -434,15 +488,15 @@ const closeModal = () => {
                   }"
                 ></span>
 
-              </label> -->
+              </label>
 
-            <!-- </div> -->
+            </div>
 
             <!-- Color Values -->
 
-            <!-- <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="grid grid-cols-2 gap-3 mt-3">
 
-
+              <!-- From -->
 
               <div>
 
@@ -479,7 +533,8 @@ const closeModal = () => {
 
               </div>
 
-             
+              <!-- To -->
+
               <div>
 
                 <label
@@ -515,8 +570,10 @@ const closeModal = () => {
 
               </div>
 
-            </div> -->
+            </div>
+
           </div>
+
         </div>
 
         <!-- ================================================================
@@ -526,6 +583,7 @@ const closeModal = () => {
         <div
           class="sticky bottom-0 px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-end gap-3"
         >
+
           <button
             type="button"
             @click="closeModal"
@@ -540,18 +598,28 @@ const closeModal = () => {
             :disabled="isLoading"
             class="min-w-28 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-medium flex items-center justify-center gap-2 shadow-sm shadow-primary/20 hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
+
             <template v-if="!isLoading">
               <span>Save Major</span>
             </template>
 
             <template v-else>
-              <SpannerIcon class="size-4 animate-spin" />
+              <SpannerIcon
+                class="size-4 animate-spin"
+              />
 
-              <span> Saving... </span>
+              <span>
+                Saving...
+              </span>
             </template>
+
           </button>
+
         </div>
+
       </form>
+
     </div>
+
   </div>
 </template>

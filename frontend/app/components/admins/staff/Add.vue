@@ -512,20 +512,7 @@ const submit = async () => {
           >
 
             <template v-if="!isLoading">
-               <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="size-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M5 12l4 4L19 6"
-                />
-              </svg>
+              <AddIcon class="size-4" />
               <span>Create Staff</span>
             </template>
 

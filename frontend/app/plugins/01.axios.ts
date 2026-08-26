@@ -16,8 +16,20 @@ export default defineNuxtPlugin((nuxtApp) => {
     return request;
   });
 
+  api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status == 401) {
+        nuxtApp.runWithContext(() => {
+          const authStore = useAuthStore();
+          authStore.clearAuth();
+          navigateTo("/login");
+        });
+      }
 
-  
+      return Promise.reject(error);
+    },
+  );
 
   return { provide: { api } };
 });
