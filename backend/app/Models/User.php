@@ -8,24 +8,33 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, HasRoles;
 
     /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
+
+    protected string $guard_name = 'web';
+
+    protected function getDefaultGuardName(): string
+    {
+        return 'web';
+    }
     protected $fillable = [
         'name_khmer',
         'name_english',
+        'role_id',
         'mobile',
-        'role',
         'email',
         'status',
-        'profile',
+        'avatar',
         'password',
     ];
 
@@ -53,17 +62,20 @@ class User extends Authenticatable
     }
 
 
-    public function userInfo()
+    public function role()
     {
-        return $this->hasMany(UserInfo::class);
+        return $this->belongsTo(Role::class);
+    }
+    public function alumni()
+    {
+        return $this->hasMany(Alumni::class);
     }
 
 
-    public function userInfosOne()
+    public function alumniOne()
     {
-        return $this->hasOne(UserInfo::class, 'user_id', 'id');
+        return $this->hasOne(Alumni::class);
     }
-
     protected $appends = ['profile_url'];
 
     public function getProfileUrlAttribute(): ?string

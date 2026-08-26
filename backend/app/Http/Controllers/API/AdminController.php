@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -11,62 +12,112 @@ class AdminController extends Controller
 {
     public function index(Request $request)
     {
-        $serach = $request->input('search', '');
-        $perPage = $request->input('per_page', 15);
-        $page = $request->input('page', 1);
+        $search = $request->input('search', '');
+        $perPage = (int) $request->input('per_page', 15);
 
+        $query = User::query()
+            ->with('role')
+            ->whereHas('role', function ($q) {
+                // Take every role except alumni
+                $q->where('name', '!=', 'alumni');
+            });
 
-        $query = User::whereNot('role', 'alumni');
-
-        if ($serach) {
-            $query->where(function ($q) use ($serach) {
-                $q->where('name_english', 'LIKE', "%{$serach}%")->orWhere('email', 'LIKE', "%{$serach}%")->orWhere('mobile', 'LIKE', "%{$serach}%");
+        // Search
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name_english', 'LIKE', "%{$search}%")
+                    ->orWhere('name_khmer', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%")
+                    ->orWhere('mobile', 'LIKE', "%{$search}%");
             });
         }
 
-        $data = $query->orderBy('created_at', 'desc')->latest()->paginate($perPage, ['*'], 'page', $page)->withQueryString();
+        $data = $query
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString();
 
         return response()->json([
-            'message' => "Message all",
-            'data' => $data
+            'message' => 'Staff list retrieved successfully',
+            'data' => $data,
         ]);
     }
     //
     public function store(Request $request)
     {
+        // ---------------------------------------------------------
+        // Validation
+        // ---------------------------------------------------------
         $request->validate([
-            'name_khmer' => 'required|string',
-            'name_english' => 'required|string',
+            'name_khmer' => 'required|string|max:255',
+            'name_english' => 'required|string|max:255',
             'login' => 'required|string',
-            'password' => 'required|min:6|confirmed',
-            'role' => 'nullable|string|in:staff,admin'
+            'password' => 'required|string|min:6|confirmed',
+            'role' => 'required|string|in:staff,admin',
         ]);
 
-        $input = $request->login;
+        // ---------------------------------------------------------
+        // Detect login type
+        // Email OR Mobile
+        // ---------------------------------------------------------
+        $input = trim($request->login);
+
         $isEmail = filter_var($input, FILTER_VALIDATE_EMAIL) !== false;
 
-        $request->validate([
-            'login' => $isEmail
-                ? 'email|unique:users,email'
-                : ['regex:/^[0-9]{9,10}$/', 'unique:users,mobile'],
-        ]);
+        // ---------------------------------------------------------
+        // Validate email / mobile uniqueness
+        // ---------------------------------------------------------
+        if ($isEmail) {
+            $request->validate([
+                'login' => 'email|unique:users,email',
+            ]);
+        } else {
+            $request->validate([
+                'login' => [
+                    'regex:/^[0-9]{9,10}$/',
+                    'unique:users,mobile',
+                ],
+            ]);
+        }
 
+        // ---------------------------------------------------------
+        // Find Role
+        // ---------------------------------------------------------
+        $role = Role::where('name', $request->role)->first();
 
+        if (!$role) {
+            return response()->json([
+                'message' => 'Role not found.',
+            ], 422);
+        }
+
+        // ---------------------------------------------------------
+        // Create User
+        // ---------------------------------------------------------
         $user = User::create([
             'name_khmer' => $request->name_khmer,
             'name_english' => $request->name_english,
+
             'email' => $isEmail ? $input : null,
             'mobile' => $isEmail ? null : $input,
+
             'password' => Hash::make($request->password),
-            'role' => $request->role ?? 'staff',
+
+            'role_id' => $role->id,
+
+            'status' => 'active',
         ]);
 
+        // ---------------------------------------------------------
+        // Load Role
+        // ---------------------------------------------------------
+        $user->load('role');
+
         return response()->json([
-            'message' => 'User create success',
-            'data' => $user
+            'message' => 'User created successfully.',
+            'data' => $user,
         ], 201);
     }
-
 
     public function update(Request $request, $id)
     {
@@ -84,15 +135,25 @@ class AdminController extends Controller
             ], 404);
         }
 
+
+        $role = Role::where('name', $request->role)->first();
+
+        if (!$role) {
+            return response()->json([
+                'message' => 'Role not found.',
+            ], 422);
+        }
+
+
         $user->update([
             'name_khmer' => $request->input('name_khmer', $user->name_khmer),
             'name_english' => $request->input('name_english', $user->name_english),
-            'role' => $request->input('role', $user->role)
+            'role_id' => $role->id,
         ]);
 
         return response()->json([
             'message' => 'Update Success',
-            'data' => $user
+            'data' => $user->load('role')
         ]);
     }
 

@@ -1,9 +1,9 @@
-import type { ReponseAPIPagination } from "~/types/reponse.api.pagination.model";
+import type { StaffResponseModel } from "~/types/staff.response.model";
 import type { UserModel } from "~/types/user.model";
 
 export const useStaffStore = defineStore("staff", {
   state: () => ({
-    data: null as ReponseAPIPagination<UserModel> | null,
+    data: null as StaffResponseModel | null,
     loading: false,
     search: "",
     perPage: 15,
@@ -20,7 +20,7 @@ export const useStaffStore = defineStore("staff", {
       this.loading = true;
 
       try {
-        const res = await $api.get("/admin/admin", {
+        const res = await $api.get("/admin/staff", {
           params: {
             search: this.search,
             per_page: this.perPage,
@@ -39,24 +39,24 @@ export const useStaffStore = defineStore("staff", {
     addStaff(data: any) {
       const { $api } = useNuxtApp();
 
-      return $api.post("/admin/admin", data);
+      return $api.post("/admin/staff", data);
     },
 
     updateStaff(id: number, data: FormData) {
       const { $api } = useNuxtApp();
 
-      return $api.put(`/admin/admin/${id}`, data);
+      return $api.put(`/admin/staff/${id}`, data);
     },
 
     changePassword(id: number, data: FormData) {
       const { $api } = useNuxtApp();
-      return $api.put(`/reset-password/${id}`, data);
+      return $api.put(`/admin/reset-password/${id}`, data);
     },
 
     deleteStaff(id: number) {
       const { $api } = useNuxtApp();
 
-      return $api.delete(`/admin/admin/${id}`);
+      return $api.delete(`/admin/delete-user/${id}`);
     },
   },
 });

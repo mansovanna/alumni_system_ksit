@@ -14,13 +14,12 @@ return new class extends Migration {
             $table->id();
             $table->string('name_khmer')->nullable();
             $table->string('name_english');
+            $table->foreignId('role_id')->constrained()->cascadeOnDelete();
             $table->string('mobile')->unique()->nullable();
             $table->string('email')->unique()->nullable();
-            $table->enum('role', ['admin', 'staff', 'alumni'])->default('alumni');
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             $table->string('password');
-            $table->enum('gender', ['male', 'female'])->default('male');
-            $table->string('profile')->nullable();
+            $table->string('avatar')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

@@ -131,11 +131,11 @@ onBeforeUnmount(() => {
             <div v-for="(item, index) in items" :key="index">
               <button
                 type="button"
-                @click="handle(item.id, item.title)"
+                @click="handle(item.id, item.name)"
                 class="px-4 py-1.5 capitalize w-full hover:bg-slate-100 text-left font-Inter"
                 :class="active == item.title ? 'bg-slate-200' : ''"
               >
-                {{ item.title }}
+                {{ item.name }}
               </button>
             </div>
           </div>
@@ -146,6 +146,8 @@ onBeforeUnmount(() => {
             No data
           </div>
         </div>
+
+       
       </Transition>
     </Teleport>
   </section>

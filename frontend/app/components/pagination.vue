@@ -40,45 +40,41 @@ function goTo(page: number | string) {
 </script>
 
 <template>
-  <div class="w-full flex justify-center items-center font-Inter font-medium">
-    <div
-      class="p-1 bg-white rounded-full border border-slate-300 flex justify-between items-center gap-2"
+  <div
+    class="p-1 bg-white rounded-full border border-slate-300 flex justify-between items-center gap-2"
+  >
+    <button
+      :disabled="currentPage === 1"
+      class="size-8 bg-slate-100 rounded-full border hover:bg-slate-200 cursor-pointer border-slate-200 flex justify-center items-center disabled:opacity-40 disabled:cursor-not-allowed"
+      @click="goTo(currentPage - 1)"
     >
-      <button
-        :disabled="currentPage === 1"
-        class="size-8 bg-slate-100 rounded-full border hover:bg-slate-200 cursor-pointer border-slate-200 flex justify-center items-center disabled:opacity-40 disabled:cursor-not-allowed"
-        @click="goTo(currentPage - 1)"
-      >
-        <ArrowIcon class="rotate-180" />
-      </button>
+      <ArrowIcon class="rotate-180" />
+    </button>
 
-      <div class="flex justify-center items-center gap-2">
-        <template v-for="(page, idx) in pages" :key="idx">
-          <div v-if="page === '...'" class="text-xs text-slate-400 px-1">
-            ...
-          </div>
-          <button
-            v-else
-            class="size-8 text-xs rounded-full border cursor-pointer flex justify-center items-center transition-colors"
-            :class="
-              page === currentPage
-                ? 'bg-info text-white border-info'
-                : 'bg-slate-100 hover:bg-slate-200 border-slate-200'
-            "
-            @click="goTo(page)"
-          >
-            {{ page }}
-          </button>
-        </template>
-      </div>
-
-      <button
-        :disabled="currentPage === lastPage"
-        class="size-8 bg-slate-100 rounded-full border hover:bg-slate-200 cursor-pointer border-slate-200 flex justify-center items-center disabled:opacity-40 disabled:cursor-not-allowed"
-        @click="goTo(currentPage + 1)"
-      >
-        <ArrowIcon class="rotate-0" />
-      </button>
+    <div class="flex justify-center items-center gap-2">
+      <template v-for="(page, idx) in pages" :key="idx">
+        <div v-if="page === '...'" class="text-xs text-slate-400 px-1">...</div>
+        <button
+          v-else
+          class="size-8 text-xs rounded-full border cursor-pointer flex justify-center items-center transition-colors"
+          :class="
+            page === currentPage
+              ? 'bg-info text-white border-info'
+              : 'bg-slate-100 hover:bg-slate-200 border-slate-200'
+          "
+          @click="goTo(page)"
+        >
+          {{ page }}
+        </button>
+      </template>
     </div>
+
+    <button
+      :disabled="currentPage === lastPage"
+      class="size-8 bg-slate-100 rounded-full border hover:bg-slate-200 cursor-pointer border-slate-200 flex justify-center items-center disabled:opacity-40 disabled:cursor-not-allowed"
+      @click="goTo(currentPage + 1)"
+    >
+      <ArrowIcon class="rotate-0" />
+    </button>
   </div>
 </template>

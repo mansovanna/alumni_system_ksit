@@ -1,9 +1,12 @@
-```vue
 <script setup lang="ts">
+import { useAlumniStore } from "#imports";
+import LoadingIcon from "~/components/icons/LoadingIcon.vue";
+
 definePageMeta({
   layout: "admin",
 });
 
+const avata = useAvatar();
 /*
 |--------------------------------------------------------------------------
 | Types
@@ -23,6 +26,8 @@ interface EventItem {
   title: string;
   status: string;
 }
+
+const route = useRoute();
 
 /*
 |--------------------------------------------------------------------------
@@ -111,8 +116,6 @@ const events: EventItem[] = [
 |--------------------------------------------------------------------------
 */
 
-const route = useRoute();
-
 const editProfile = () => {
   navigateTo({
     name: "admins-users-id-edit",
@@ -121,6 +124,11 @@ const editProfile = () => {
     },
   });
 };
+
+const alumniStore = useAlumniStore();
+onMounted(async () => {
+  await alumniStore.getAlumniProfile(Number(route.params.id));
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -139,15 +147,53 @@ const updateStatus = () => {
 };
 
 const handleSaveStatus = () => {
-  // logic សម្រាប់រក្សាទុក status
   alumni.status = selectedStatus.value;
   showStatusModal.value = false;
 };
 
+const formatMonthYear = (date: string | null | undefined) => {
+  if (!date) return "N/A";
+
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+};
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 bg-gray-50 p-4 rounded-xl overflow-hidden">
+  <div class="w-full flex justify-between items-center mb-6 gap-6">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Alumni Details</h1>
+      <p class="text-slate-400 text-sm line-clamp-1">
+        Keep your alumni network informed about your professional journey.
+      </p>
+    </div>
+
+    <button
+      @click="$router.back"
+      type="button"
+      class="p-1.5 px-4 flex justify-center items-center gap-1.5 bg-slate-900 text-white hover:bg-slate-800 rounded-lg active:bg-slate-700 transition cursor-pointer shadow-xs"
+      aria-label="Go back"
+    >
+      <!-- ArrowLeft Icon SVG -->
+      <svg
+        class="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        viewBox="0 0 24 24"
+      >
+        <path d="m12 19-7-7 7-7" />
+        <path d="M19 12H5" />
+      </svg>
+      <span class="text-sm font-medium">Back</span>
+    </button>
+  </div>
+
+  <div v-if="!alumniStore.isLoading" class="flex flex-col gap-4">
     <!-- ============================================================
          HEADER CARD
     ============================================================= -->
@@ -159,15 +205,21 @@ const handleSaveStatus = () => {
       <div class="flex items-center gap-4">
         <!-- Avatar -->
         <img
-          :src="alumni.avatar"
-          :alt="alumni.name"
+          :src="
+            alumniStore.alumniProfile?.user?.avatar
+              ? alumniStore.alumniProfile.user.avatar
+              : avata.textToImage(
+                  alumniStore.alumniProfile?.user?.name_english ?? 'User',
+                )
+          "
+          :alt="alumniStore.alumniProfile?.user?.name_english ?? 'User'"
           class="w-24 h-24 rounded-lg object-cover border border-gray-100"
         />
 
         <div>
           <!-- Name -->
           <h1 class="text-xl font-semibold text-gray-900">
-            {{ alumni.name }}
+            {{ alumniStore.alumniProfile?.user?.name_english ?? "N/A" }}
           </h1>
 
           <!-- Basic Information -->
@@ -189,7 +241,9 @@ const handleSaveStatus = () => {
                 <path d="M22 10v6" />
               </svg>
 
-              {{ alumni.degree }}
+              {{ alumniStore.alumniProfile?.major?.name ?? "N/A" }} ({{
+                alumniStore.alumniProfile?.graduation_year ?? "N/A"
+              }})
             </span>
 
             <!-- Location -->
@@ -206,7 +260,7 @@ const handleSaveStatus = () => {
                 <circle cx="12" cy="10" r="2.5" />
               </svg>
 
-              {{ alumni.location }}
+              {{ alumniStore.alumniProfile?.address ?? "N/A" }}
             </span>
 
             <!-- ID -->
@@ -223,8 +277,11 @@ const handleSaveStatus = () => {
                 <circle cx="8" cy="11" r="2" />
                 <path d="M13 10h5M13 14h4" />
               </svg>
-
-              ID: {{ alumni.id }}
+              {{
+                alumniStore.alumniProfile?.user.mobile ??
+                alumniStore.alumniProfile?.user.email ??
+                "N/A"
+              }}
             </span>
           </div>
 
@@ -233,7 +290,7 @@ const handleSaveStatus = () => {
             class="inline-flex items-center gap-1 mt-2 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-full"
           >
             <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-            {{ alumni.status }}
+            {{ alumniStore.alumniProfile?.employment_status }}
           </span>
         </div>
       </div>
@@ -320,7 +377,7 @@ const handleSaveStatus = () => {
               <p class="text-gray-400 text-xs mb-1">Email</p>
 
               <p class="text-gray-900">
-                {{ alumni.email }}
+                {{ alumniStore.alumniProfile?.user.email ?? "N/A" }}
               </p>
             </div>
 
@@ -329,16 +386,30 @@ const handleSaveStatus = () => {
               <p class="text-gray-400 text-xs mb-1">Phone</p>
 
               <p class="text-gray-900">
-                {{ alumni.phone }}
+                +855 {{ alumniStore.alumniProfile?.user.mobile ?? "N/A" }}
               </p>
             </div>
 
-            <!-- LinkedIn -->
+            <!-- FaceBook Link -->
+            <div>
+              <p class="text-gray-400 text-xs mb-1">FaceBook Link</p>
+
+              <a
+                :href="alumniStore.alumniProfile?.facebook_url ?? '#'"
+                class="text-blue-600 hover:underline line-clamp-1"
+              >
+                {{ alumniStore.alumniProfile?.facebook_url ?? "N/A" }}
+              </a>
+            </div>
+
             <div>
               <p class="text-gray-400 text-xs mb-1">LinkedIn</p>
 
-              <a href="#" class="text-blue-600 hover:underline">
-                {{ alumni.linkedin }}
+              <a
+                :href="alumniStore.alumniProfile?.linkedin_url ?? '#'"
+                class="text-blue-600 hover:underline line-clamp-1"
+              >
+                {{ alumniStore.alumniProfile?.linkedin_url ?? "N/A" }}
               </a>
             </div>
           </div>
@@ -373,7 +444,7 @@ const handleSaveStatus = () => {
               <p class="text-gray-400 text-xs mb-1">Degree</p>
 
               <p class="text-gray-900">
-                {{ alumni.academic.degree }}
+                {{ alumniStore.alumniProfile?.bio ?? "N/A" }}
               </p>
             </div>
 
@@ -382,7 +453,7 @@ const handleSaveStatus = () => {
               <p class="text-gray-400 text-xs mb-1">Major</p>
 
               <p class="text-gray-900">
-                {{ alumni.academic.major }}
+                {{ alumniStore.alumniProfile?.major?.name ?? "N/A" }}
               </p>
             </div>
 
@@ -391,7 +462,7 @@ const handleSaveStatus = () => {
               <p class="text-gray-400 text-xs mb-1">Graduation Date</p>
 
               <p class="text-gray-900">
-                {{ alumni.academic.graduationDate }}
+                {{ alumniStore.alumniProfile?.graduation_year ?? "N/A" }}
               </p>
             </div>
           </div>
@@ -458,15 +529,18 @@ const handleSaveStatus = () => {
               </svg>
             </div>
 
-            <div class="flex-1">
+            <div class="flex-1 capitalize">
               <p class="font-medium text-gray-900">
-                {{ alumni.employment.title }}
+                {{ alumniStore.alumniProfile?.employment?.job_title ?? "N/A" }}
               </p>
 
               <p class="text-sm text-gray-500 mb-3">
-                {{ alumni.employment.company }}
+                {{ alumniStore.alumniProfile?.employment?.company_id ?? "N/A" }}
                 •
-                {{ alumni.employment.type }}
+                {{
+                  alumniStore.alumniProfile?.employment?.employment_type ??
+                  "N/A"
+                }}
               </p>
 
               <div
@@ -477,7 +551,11 @@ const handleSaveStatus = () => {
                   <p class="text-gray-400 text-xs mb-1">Start Date</p>
 
                   <p class="text-gray-900">
-                    {{ alumni.employment.startDate }}
+                    {{
+                      formatMonthYear(
+                        alumniStore.alumniProfile?.employment?.start_date,
+                      ) ?? "N/A"
+                    }}
                   </p>
                 </div>
 
@@ -486,7 +564,9 @@ const handleSaveStatus = () => {
                   <p class="text-gray-400 text-xs mb-1">Location</p>
 
                   <p class="text-gray-900">
-                    {{ alumni.employment.location }}
+                    {{
+                      alumniStore.alumniProfile?.employment?.location ?? "N/A"
+                    }}
                   </p>
                 </div>
               </div>
@@ -625,6 +705,10 @@ const handleSaveStatus = () => {
         </div>
       </div>
     </div>
+  </div>
+
+  <div v-else class="w-full p-5 flex justify-center items-center">
+    <LoadingIcon class="size-10 text-primary" />
   </div>
 
   <!-- ==============================================================

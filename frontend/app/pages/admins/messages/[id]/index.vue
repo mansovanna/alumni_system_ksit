@@ -1,72 +1,268 @@
 <script setup lang="ts">
-import type { MessageModel } from "~/types/message.response.model";
+import type { NotificationItem } from "~/types/notification"; // adjust path to your model file
 
 definePageMeta({
   layout: "admin",
 });
 
-const props = defineProps<{
-  data?: MessageModel | null;
-}>();
+const route = useRoute();
+const router = useRouter();
 
-const emit = defineEmits(["close", "submit"]);
+const messageStore = useMessageStore();
+const majorStore = useMajorStore();
+
+const messageId = Number(route.params.id);
+
+/* ------------------- Options ------------------- */
+const notificationTypes = [
+  "General",
+  "Career Fair",
+  "Job Posting",
+  "Event",
+  "Reminder",
+];
+
+const years = ["2024", "2023", "2022"];
+
+const employmentStatuses = [
+  "self_employed",
+  "employed",
+  "unemployed",
+  "studying",
+  "unknown",
+];
 
 /* ------------------- Form State ------------------- */
 const form = ref({
-  subject:
-    props.data?.title ||
-    "Annual Alumni Gala 2024: Early Bird Registration Closing Soon!",
-
-  body:
-    props.data?.body ||
-    `Dear [First Name],
-
-We are incredibly excited to invite you back to campus for the Annual Alumni Gala 2024! This year's event promises to be our most spectacular gathering yet, celebrating the remarkable achievements of our community over the past decade.
-
-Early bird registration is closing this Friday. Don't miss your chance to secure tickets at the discounted rate.
-
-Join us on October 15th for an evening of networking, celebration, and nostalgia.
-
-Warmly,
-The Alumni Relations Team
-University Administration`,
-
-  deliveryOption: "schedule",
-  scheduleDate: "2024-10-15",
-  scheduleTime: "09:00",
+  title: "",
+  message: "",
+  type: "General",
+  filters: {
+    graduationYear: "",
+    major: "",
+    employmentStatus: "",
+  },
 });
 
-/* ------------------- Active Audience Filters ------------------- */
-const activeFilters = ref([
-  {
-    id: 1,
-    label: "Grad Year: 2010 - 2023",
-  },
-  {
-    id: 2,
-    label: "Major: Engineering, Business Admin",
-  },
-  {
-    id: 3,
-    label: "Status: Employed",
-  },
-]);
+const isLoading = ref(true);
+const loadError = ref("");
+const record = ref<NotificationItem | null>(null);
 
-/* ------------------- Remove Filter ------------------- */
-const removeFilter = (id: number) => {
-  activeFilters.value = activeFilters.value.filter(
-    (f) => f.id !== id,
+/* ------------------- Parse filters JSON ------------------- */
+const parseFilters = (raw: string | null) => {
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as {
+      graduationYear?: string;
+      major?: string;
+      employmentStatus?: string;
+    };
+  } catch {
+    return null;
+  }
+};
+
+/* ------------------- Load Message + Majors ------------------- */
+onMounted(async () => {
+  isLoading.value = true;
+  loadError.value = "";
+
+  try {
+    const [msgRes] = await Promise.all([
+      messageStore.getMessageById(messageId),
+      !majorStore.data?.data?.length
+        ? majorStore.getMajorAll?.()
+        : Promise.resolve(),
+    ]);
+
+    const item: NotificationItem = msgRes?.data?.data ?? msgRes?.data;
+
+    if (!item) {
+      loadError.value = "Message not found.";
+      return;
+    }
+
+    record.value = item;
+
+    const parsed = parseFilters(item.filters);
+
+    form.value = {
+      title: item.title || "",
+      message: item.message || "",
+      type: item.type || "General",
+      filters: {
+        graduationYear: parsed?.graduationYear || "",
+        major: parsed?.major || "",
+        employmentStatus: parsed?.employmentStatus || "",
+      },
+    };
+  } catch (err: any) {
+    loadError.value =
+      err?.data?.message || "Failed to load message. Please try again.";
+  } finally {
+    isLoading.value = false;
+  }
+});
+
+/* ------------------- Validation ------------------- */
+const TITLE_MAX = 150;
+const MESSAGE_MAX = 2000;
+
+const submitted = ref(false);
+const isSaving = ref(false);
+const serverError = ref("");
+
+const errors = computed(() => {
+  const e: Record<string, string> = {};
+
+  const title = form.value.title.trim();
+  const message = form.value.message.trim();
+
+  if (!title) {
+    e.title = "Message subject is required.";
+  } else if (title.length > TITLE_MAX) {
+    e.title = `Subject must be ${TITLE_MAX} characters or fewer.`;
+  }
+
+  if (!message) {
+    e.message = "Message body is required.";
+  } else if (message.length > MESSAGE_MAX) {
+    e.message = `Message must be ${MESSAGE_MAX} characters or fewer.`;
+  }
+
+  if (!form.value.type) {
+    e.type = "Please select a notification type.";
+  } else if (!notificationTypes.includes(form.value.type)) {
+    e.type = "Invalid notification type.";
+  }
+
+  if (
+    !form.value.filters.graduationYear &&
+    !form.value.filters.major &&
+    !form.value.filters.employmentStatus
+  ) {
+    e.filters = "Select at least one audience filter.";
+  }
+
+  return e;
+});
+
+const isValid = computed(() => Object.keys(errors.value).length === 0);
+
+const touched = ref<Record<string, boolean>>({});
+const showError = (field: string) =>
+  (touched.value[field] || submitted.value) && !!errors.value[field];
+
+const touch = (field: string) => {
+  touched.value[field] = true;
+};
+
+/* ------------------- Audience Filter Chips ------------------- */
+const activeFilterChips = computed(() => {
+  const chips: { key: string; label: string }[] = [];
+
+  if (form.value.filters.graduationYear) {
+    chips.push({
+      key: "graduationYear",
+      label: `Grad Year: ${form.value.filters.graduationYear}`,
+    });
+  }
+
+  if (form.value.filters.major) {
+    chips.push({
+      key: "major",
+      label: `Major: ${form.value.filters.major}`,
+    });
+  }
+
+  if (form.value.filters.employmentStatus) {
+    chips.push({
+      key: "employmentStatus",
+      label: `Status: ${form.value.filters.employmentStatus}`,
+    });
+  }
+
+  return chips;
+});
+
+const removeFilter = (key: "graduationYear" | "major" | "employmentStatus") => {
+  form.value.filters[key] = "";
+};
+
+const clearAllFilters = () => {
+  form.value.filters.graduationYear = "";
+  form.value.filters.major = "";
+  form.value.filters.employmentStatus = "";
+};
+
+/* ------------------- Date Formatter ------------------- */
+const formatDate = (dateString?: string) => {
+  if (!dateString) return "—";
+
+  const date = new Date(dateString);
+
+  if (isNaN(date.getTime())) return "—";
+
+  return (
+    date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    }) +
+    " · " +
+    date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
   );
 };
 
-/* ------------------- Clear Filters ------------------- */
-const clearAllFilters = () => {
-  activeFilters.value = [];
+/* ------------------- Save / Update ------------------- */
+const handleSave = async () => {
+  submitted.value = true;
+  serverError.value = "";
+
+  if (!isValid.value) {
+    return;
+  }
+
+  const data = new FormData();
+
+  data.append("title", form.value.title.trim());
+  data.append("message", form.value.message.trim());
+  data.append("type", form.value.type);
+  data.append("filters", JSON.stringify(form.value.filters));
+
+  isSaving.value = true;
+
+  try {
+    const res = await messageStore.updateMessage(messageId, data);
+
+    const updated = res?.data?.data ?? res?.data;
+
+    if (updated && messageStore.data?.data.data) {
+      const idx = messageStore.data.data.data.findIndex(
+        (m) => m.id === messageId,
+      );
+
+      if (idx !== -1) {
+        messageStore.data.data.data[idx] = updated;
+      }
+    }
+
+    router.push({ name: "admins-messages" });
+  } catch (err: any) {
+    serverError.value =
+      err?.data?.message || "Failed to update message. Please try again.";
+  } finally {
+    isSaving.value = false;
+  }
 };
 
-/* ------------------- Save / Update ------------------- */
-const handleSave = () => {
-  emit("submit", form.value);
+const handleDiscard = () => {
+  router.push({ name: "admins-messages" });
 };
 </script>
 
@@ -77,80 +273,126 @@ const handleSave = () => {
     <!-- =========================================================
          TOP BAR
     ========================================================== -->
+    <!-- =========================================================
+     TOP BAR
+========================================================== -->
     <div
-      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
+      class="sticky top-0 z-10 -mx-6 -mt-6 mb-6 px-6 py-4 bg-[#F8FAFC]/95 backdrop-blur-sm border-b border-slate-200/70"
     >
-      <!-- Page Title -->
-      <div>
-        <button
-          @click="$router.back()"
-          type="button"
-          class="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium transition cursor-pointer mb-1"
-        >
-          <svg
-            class="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
+      <div
+        class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
+        <!-- Title + Back -->
+        <div class="flex items-center gap-3">
+          <button
+            @click="router.back()"
+            type="button"
+            title="Back to Messages"
+            class="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
           >
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
 
-          Back to Messages
-        </button>
+          <div>
+            <h1
+              class="text-xl font-bold text-slate-900 tracking-tight leading-tight"
+            >
+              Edit Message
+            </h1>
 
-        <h1
-          class="text-2xl font-bold text-slate-900 tracking-tight"
-        >
-          Edit Message
-        </h1>
-      </div>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Message #{{ messageId }}
+            </p>
+          </div>
+        </div>
 
-      <!-- Actions -->
-      <div class="flex items-center gap-3">
-        <!-- Discard -->
-        <button
-          @click="$router.back()"
-          type="button"
-          class="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition cursor-pointer"
-        >
-          Discard Changes
-        </button>
-
-        <!-- Update -->
-        <button
-          @click="handleSave"
-          type="button"
-          class="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-950 hover:bg-slate-800 rounded-lg transition shadow-xs cursor-pointer"
-        >
-          <svg
-            class="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
+        <!-- Actions -->
+        <div class="flex items-center gap-2.5 shrink-0">
+          <button
+            @click="handleDiscard"
+            type="button"
+            :disabled="isSaving"
+            class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
-            <path
-              d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
-            />
+            Discard Changes
+          </button>
 
-            <polyline points="17 21 17 13 7 13 7 21" />
+          <button
+            @click="handleSave"
+            type="button"
+            :disabled="isSaving || isLoading || (submitted && !isValid)"
+            class="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-950 hover:bg-slate-800 rounded-lg transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              v-if="!isSaving"
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+              />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
 
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
+            <svg
+              v-else
+              class="w-3.5 h-3.5 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
 
-          Update Message
-        </button>
+            {{ isSaving ? "Updating..." : "Update Message" }}
+          </button>
+        </div>
       </div>
+    </div>
+
+    <!-- Loading -->
+    <div
+      v-if="isLoading"
+      class="bg-white rounded-xl border border-slate-200/80 shadow-xs p-8 text-center text-sm text-slate-400 font-medium"
+    >
+      Loading message...
+    </div>
+
+    <!-- Load error -->
+    <div
+      v-else-if="loadError"
+      class="bg-white rounded-xl border border-red-200 shadow-xs p-8 text-center text-sm text-red-600 font-medium"
+    >
+      {{ loadError }}
     </div>
 
     <!-- =========================================================
          MAIN CONTENT
     ========================================================== -->
-    <div
-      class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
-    >
+    <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       <!-- =======================================================
            LEFT COLUMN
       ======================================================== -->
@@ -161,301 +403,143 @@ const handleSave = () => {
         <div
           class="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
         >
-          <!-- Header -->
-          <div
-            class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50"
-          >
-            <h2
-              class="text-sm font-bold text-slate-800"
-            >
-              Message Content
-            </h2>
+          <div class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+            <h2 class="text-sm font-bold text-slate-800">Message Content</h2>
           </div>
 
-          <!-- Content -->
           <div class="p-5 space-y-5">
             <!-- Subject -->
             <div>
-              <div
-                class="flex items-center justify-between mb-1.5"
-              >
-                <label
-                  class="block text-xs font-bold text-slate-700"
-                >
-                  Subject Line
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-xs font-bold text-slate-700">
+                  Subject Line <span class="text-red-500">*</span>
                 </label>
 
-                <span
-                  class="text-[11px] text-slate-400 font-medium"
-                >
-                  {{ form.subject.length }}/100
+                <span class="text-[11px] text-slate-400 font-medium">
+                  {{ form.title.length }}/{{ TITLE_MAX }}
                 </span>
               </div>
 
               <input
-                v-model="form.subject"
+                v-model="form.title"
                 type="text"
-                maxlength="100"
-                class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 font-medium text-slate-800 placeholder:text-slate-400 transition"
+                :maxlength="TITLE_MAX"
+                @blur="touch('title')"
+                :class="[
+                  'w-full px-3.5 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 font-medium text-slate-800 placeholder:text-slate-400 transition',
+                  showError('title')
+                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                    : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800',
+                ]"
               />
+
+              <p
+                v-if="showError('title')"
+                class="mt-1 text-[11px] text-red-600"
+              >
+                {{ errors.title }}
+              </p>
             </div>
 
-            <!-- Email Body -->
+            <!-- Notification Type -->
             <div>
-              <label
-                class="block text-xs font-bold text-slate-700 mb-1.5"
+              <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                Notification Type <span class="text-red-500">*</span>
+              </label>
+
+              <select
+                v-model="form.type"
+                @blur="touch('type')"
+                :class="[
+                  'w-full px-3.5 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 bg-white font-medium text-slate-800 transition',
+                  showError('type')
+                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                    : 'border-slate-200 focus:ring-slate-900/10 focus:border-slate-800',
+                ]"
               >
-                Email Body
+                <option v-for="t in notificationTypes" :key="t" :value="t">
+                  {{ t }}
+                </option>
+              </select>
+
+              <p v-if="showError('type')" class="mt-1 text-[11px] text-red-600">
+                {{ errors.type }}
+              </p>
+            </div>
+
+            <!-- Message Body -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                Message Body <span class="text-red-500">*</span>
               </label>
 
               <div
-                class="border border-slate-200 rounded-lg overflow-hidden focus-within:border-slate-800 focus-within:ring-2 focus-within:ring-slate-900/10 transition"
+                :class="[
+                  'border rounded-lg overflow-hidden focus-within:ring-2 transition',
+                  showError('message')
+                    ? 'border-red-300 focus-within:ring-red-500/20 focus-within:border-red-500'
+                    : 'border-slate-200 focus-within:ring-slate-900/10 focus-within:border-slate-800',
+                ]"
               >
-                <!-- Toolbar -->
+                <!-- Toolbar (visual only — no rich text persisted) -->
                 <div
-                  class="flex items-center gap-4 px-3.5 py-2 bg-slate-50 border-b border-slate-200 text-slate-600 text-xs"
+                  class="flex items-center gap-3 px-3.5 py-2 bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold"
                 >
-                  <!-- Text Style -->
-                  <div
-                    class="flex items-center gap-1 cursor-pointer hover:text-slate-900 font-medium"
+                  <button
+                    type="button"
+                    class="hover:text-slate-900 cursor-pointer"
                   >
-                    <span>Normal Text</span>
+                    B
+                  </button>
 
-                    <svg
-                      class="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </div>
-
-                  <div
-                    class="h-3 w-px bg-slate-200"
-                  ></div>
-
-                  <!-- Text Formatting -->
-                  <div
-                    class="flex items-center gap-3"
+                  <button
+                    type="button"
+                    class="italic hover:text-slate-900 cursor-pointer"
                   >
-                    <button
-                      type="button"
-                      class="font-bold hover:text-slate-900 cursor-pointer"
-                    >
-                      B
-                    </button>
+                    I
+                  </button>
 
-                    <button
-                      type="button"
-                      class="italic hover:text-slate-900 cursor-pointer"
-                    >
-                      I
-                    </button>
-
-                    <button
-                      type="button"
-                      class="underline hover:text-slate-900 cursor-pointer"
-                    >
-                      U
-                    </button>
-                  </div>
-
-                  <div
-                    class="h-3 w-px bg-slate-200"
-                  ></div>
-
-                  <!-- Alignment -->
-                  <div
-                    class="flex items-center gap-3"
+                  <button
+                    type="button"
+                    class="underline hover:text-slate-900 cursor-pointer"
                   >
-                    <!-- Align Left -->
-                    <button
-                      type="button"
-                      class="hover:text-slate-900 cursor-pointer"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <line
-                          x1="8"
-                          y1="6"
-                          x2="21"
-                          y2="6"
-                        />
-
-                        <line
-                          x1="8"
-                          y1="12"
-                          x2="21"
-                          y2="12"
-                        />
-
-                        <line
-                          x1="8"
-                          y1="18"
-                          x2="21"
-                          y2="18"
-                        />
-
-                        <line
-                          x1="3"
-                          y1="6"
-                          x2="3.01"
-                          y2="6"
-                        />
-
-                        <line
-                          x1="3"
-                          y1="12"
-                          x2="3.01"
-                          y2="12"
-                        />
-
-                        <line
-                          x1="3"
-                          y1="18"
-                          x2="3.01"
-                          y2="18"
-                        />
-                      </svg>
-                    </button>
-
-                    <!-- Ordered List -->
-                    <button
-                      type="button"
-                      class="hover:text-slate-900 cursor-pointer"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <line
-                          x1="10"
-                          y1="6"
-                          x2="21"
-                          y2="6"
-                        />
-
-                        <line
-                          x1="10"
-                          y1="12"
-                          x2="21"
-                          y2="12"
-                        />
-
-                        <line
-                          x1="10"
-                          y1="18"
-                          x2="21"
-                          y2="18"
-                        />
-
-                        <path d="M4 6h1v4" />
-                        <path d="M4 10h2" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div
-                    class="h-3 w-px bg-slate-200"
-                  ></div>
-
-                  <!-- Link / Image -->
-                  <div
-                    class="flex items-center gap-3"
-                  >
-                    <!-- Link -->
-                    <button
-                      type="button"
-                      class="hover:text-slate-900 cursor-pointer"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-                        />
-
-                        <path
-                          d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                        />
-                      </svg>
-                    </button>
-
-                    <!-- Image -->
-                    <button
-                      type="button"
-                      class="hover:text-slate-900 cursor-pointer"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <rect
-                          x="3"
-                          y="3"
-                          width="18"
-                          height="18"
-                          rx="2"
-                          ry="2"
-                        />
-
-                        <circle
-                          cx="8.5"
-                          cy="8.5"
-                          r="1.5"
-                        />
-
-                        <polyline
-                          points="21 15 16 10 5 21"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                    U
+                  </button>
                 </div>
 
                 <!-- Textarea -->
                 <textarea
-                  v-model="form.body"
+                  v-model="form.message"
                   rows="12"
+                  :maxlength="MESSAGE_MAX"
+                  @blur="touch('message')"
                   class="w-full p-4 text-xs sm:text-sm text-slate-800 leading-relaxed focus:outline-none resize-y font-Inter"
                 ></textarea>
+              </div>
+
+              <div class="flex items-center justify-between mt-1">
+                <p v-if="showError('message')" class="text-[11px] text-red-600">
+                  {{ errors.message }}
+                </p>
+
+                <span class="text-[11px] text-slate-400 font-medium ml-auto">
+                  {{ form.message.length }}/{{ MESSAGE_MAX }}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- =====================================================
-             AUDIENCE TARGETING
+             AUDIENCE TARGETING (backend: filters JSON column)
         ====================================================== -->
         <div
           class="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
         >
-          <!-- Header -->
           <div
             class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between"
           >
-            <h2
-              class="text-sm font-bold text-slate-800"
-            >
-              Audience Targeting
-            </h2>
+            <h2 class="text-sm font-bold text-slate-800">Audience Targeting</h2>
 
             <button
               @click="clearAllFilters"
@@ -466,143 +550,166 @@ const handleSave = () => {
             </button>
           </div>
 
-          <!-- Content -->
           <div class="p-5 space-y-4">
             <div>
-              <span
-                class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2"
-              >
-                Active Segments
-              </span>
-
-              <!-- Filter Badges -->
-              <div
-                class="flex flex-wrap items-center gap-2"
-              >
+              <div class="flex items-center justify-between mb-2">
                 <span
-                  v-for="filter in activeFilters"
-                  :key="filter.id"
-                  class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-md border border-blue-100"
+                  class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider"
                 >
-                  {{ filter.label }}
-
-                  <button
-                    @click="removeFilter(filter.id)"
-                    type="button"
-                    class="hover:text-blue-900 cursor-pointer"
-                  >
-                    <svg
-                      class="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M18 6 6 18M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                  Active Segments
                 </span>
 
-                <!-- Add Filter -->
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1 px-3 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium rounded-md border border-slate-200 transition cursor-pointer"
-                >
-                  <span
-                    class="text-base leading-none"
-                  >
-                    +
-                  </span>
+                <p v-if="showError('filters')" class="text-[11px] text-red-600">
+                  {{ errors.filters }}
+                </p>
+              </div>
 
-                  Add Filter
-                </button>
+              <!-- Filter Chips -->
+              <div class="flex flex-wrap items-center gap-2 mb-4">
+                <template v-if="activeFilterChips.length">
+                  <span
+                    v-for="chip in activeFilterChips"
+                    :key="chip.key"
+                    class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-md border border-blue-100"
+                  >
+                    {{ chip.label }}
+
+                    <button
+                      @click="removeFilter(chip.key as any)"
+                      type="button"
+                      class="hover:text-blue-900 cursor-pointer"
+                    >
+                      <svg
+                        class="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M18 6 6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                </template>
+
+                <span v-else class="text-xs text-slate-400">
+                  No filters selected — will target all alumni.
+                </span>
+              </div>
+
+              <!-- Graduation Year -->
+              <div class="mb-3">
+                <span
+                  class="block text-[11px] font-medium text-slate-500 mb-1.5"
+                >
+                  Graduation Year
+                </span>
+
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="year in years"
+                    :key="year"
+                    type="button"
+                    @click="form.filters.graduationYear = year"
+                    :class="[
+                      'px-3 py-1 text-xs rounded-full border transition cursor-pointer',
+                      form.filters.graduationYear === year
+                        ? 'bg-blue-600 border-blue-600 text-white font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50',
+                    ]"
+                  >
+                    {{ year }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Major -->
+              <div class="mb-3">
+                <span
+                  class="block text-[11px] font-medium text-slate-500 mb-1.5"
+                >
+                  Major
+                </span>
+
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="item in majorStore.data?.data"
+                    :key="Number(item.id)"
+                    type="button"
+                    @click="form.filters.major = String(item.name)"
+                    :class="[
+                      'px-3 py-1 text-xs rounded-full border transition cursor-pointer',
+                      form.filters.major === item.name
+                        ? 'bg-blue-600 border-blue-600 text-white font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50',
+                    ]"
+                  >
+                    {{ item.name ?? "N/A" }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Employment Status -->
+              <div>
+                <span
+                  class="block text-[11px] font-medium text-slate-500 mb-1.5"
+                >
+                  Employment Status
+                </span>
+
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="st in employmentStatuses"
+                    :key="st"
+                    type="button"
+                    @click="form.filters.employmentStatus = st"
+                    :class="[
+                      'px-3 py-1 text-xs capitalize rounded-full border transition cursor-pointer',
+                      form.filters.employmentStatus === st
+                        ? 'bg-blue-600 border-blue-600 text-white font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50',
+                    ]"
+                  >
+                    {{ st }}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Recipients Match Banner -->
+            <!-- Reach Estimate -->
             <div
-              class="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl flex items-center justify-between gap-4"
+              class="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl flex items-center gap-3"
             >
               <div
-                class="flex items-center gap-3"
+                class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white shrink-0"
               >
-                <!-- Icon -->
-                <div
-                  class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white shrink-0"
-                >
-                  <svg
-                    class="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-                    />
-
-                    <circle
-                      cx="9"
-                      cy="7"
-                      r="4"
-                    />
-
-                    <path
-                      d="M23 21v-2a4 4 0 0 0-3-3.87"
-                    />
-
-                    <path
-                      d="M16 3.13a4 4 0 0 1 0 7.75"
-                    />
-                  </svg>
-                </div>
-
-                <div>
-                  <div
-                    class="text-sm font-bold text-slate-900"
-                  >
-                    14,250
-
-                    <span
-                      class="text-xs font-normal text-slate-500"
-                    >
-                      Recipients Match Filters
-                    </span>
-                  </div>
-
-                  <p
-                    class="text-[11px] text-blue-600 font-medium mt-0.5 flex items-center gap-1"
-                  >
-                    <span
-                      class="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block"
-                    ></span>
-
-                    Live estimate updated moments ago
-                  </p>
-                </div>
-              </div>
-
-              <!-- Preview -->
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 transition cursor-pointer"
-              >
-                Preview List
-
                 <svg
-                  class="w-3.5 h-3.5"
+                  class="w-5 h-5"
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
                   viewBox="0 0 24 24"
                 >
-                  <path
-                    d="M7 17L17 7M17 7H7M17 7V17"
-                  />
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-              </button>
+              </div>
+
+              <div>
+                <div class="text-sm font-bold text-slate-900">
+                  {{ messageStore.data?.totalAlumni ?? 0 }}
+
+                  <span class="text-xs font-normal text-slate-500">
+                    Total Alumni (aggregate estimate)
+                  </span>
+                </div>
+
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  Per-filter recipient counts aren't available yet from the API.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -612,16 +719,10 @@ const handleSave = () => {
            RIGHT COLUMN
       ======================================================== -->
       <div class="lg:col-span-4 space-y-6">
-        <!-- =====================================================
-             MESSAGE DETAILS
-        ====================================================== -->
         <div
           class="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 space-y-5"
         >
-          <!-- Header -->
-          <div
-            class="flex items-center gap-2 text-slate-900 font-bold text-sm"
-          >
+          <div class="flex items-center gap-2 text-slate-900 font-bold text-sm">
             <svg
               class="w-4 h-4 text-slate-500"
               fill="none"
@@ -629,264 +730,54 @@ const handleSave = () => {
               stroke-width="2"
               viewBox="0 0 24 24"
             >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-              />
-
-              <line
-                x1="12"
-                y1="16"
-                x2="12"
-                y2="12"
-              />
-
-              <line
-                x1="12"
-                y1="8"
-                x2="12.01"
-                y2="8"
-              />
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
 
             <span>Message Details</span>
           </div>
 
-          <!-- Current Status -->
+          <!-- Type -->
           <div>
-            <span
-              class="block text-[11px] font-semibold text-slate-500 mb-1.5"
-            >
-              Current Status
+            <span class="block text-[11px] font-semibold text-slate-500 mb-1.5">
+              Notification Type
             </span>
 
             <span
               class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold"
             >
-              <span
-                class="w-1.5 h-1.5 rounded-full bg-slate-500"
-              ></span>
-
-              Draft
+              {{ form.type }}
             </span>
           </div>
 
-          <!-- Last Modified -->
+          <!-- Created On (real data) -->
           <div>
-            <span
-              class="block text-[11px] font-semibold text-slate-500"
-            >
-              Last Modified
-            </span>
-
-            <p
-              class="text-xs font-bold text-slate-800 mt-0.5"
-            >
-              Oct 12, 2024 · 10:45 AM
-            </p>
-
-            <div
-              class="flex items-center gap-1.5 mt-1"
-            >
-              <div
-                class="w-4 h-4 rounded-full bg-slate-300 text-[9px] font-bold text-slate-700 flex items-center justify-center"
-              >
-                SJ
-              </div>
-
-              <span
-                class="text-xs text-slate-500"
-              >
-                by Sarah Jenkins
-              </span>
-            </div>
-          </div>
-
-          <!-- Created On -->
-          <div>
-            <span
-              class="block text-[11px] font-semibold text-slate-500"
-            >
+            <span class="block text-[11px] font-semibold text-slate-500">
               Created On
             </span>
 
-            <p
-              class="text-xs font-bold text-slate-800 mt-0.5"
-            >
-              Oct 10, 2024 · 09:00 AM
+            <p class="text-xs font-bold text-slate-800 mt-0.5">
+              {{ formatDate(record?.created_at) }}
             </p>
           </div>
 
-          <hr
-            class="border-slate-100"
-          />
-
-          <!-- Testing & Preview -->
-          <div class="space-y-2.5">
-            <span
-              class="block text-[11px] font-semibold text-slate-500"
-            >
-              Testing & Preview
+          <!-- Message ID -->
+          <div>
+            <span class="block text-[11px] font-semibold text-slate-500">
+              Message ID
             </span>
 
-            <!-- Preview Browser -->
-            <button
-              type="button"
-              class="w-full py-2 px-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-            >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"
-                />
-
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="3"
-                />
-              </svg>
-
-              Preview in Browser
-            </button>
-
-            <!-- Send Test Email -->
-            <button
-              type="button"
-              class="w-full py-2 px-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                />
-
-                <polyline
-                  points="22,6 12,13 2,6"
-                />
-              </svg>
-
-              Send Test Email
-            </button>
+            <p class="text-xs font-bold text-slate-800 mt-0.5">
+              #{{ record?.id }}
+            </p>
           </div>
         </div>
 
-        <!-- =====================================================
-             DELIVERY OPTIONS
-        ====================================================== -->
-        <div
-          class="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 space-y-4"
-        >
-          <!-- Header -->
-          <div
-            class="flex items-center gap-2 text-slate-900 font-bold text-sm"
-          >
-            <svg
-              class="w-4 h-4 text-slate-500"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-              />
-
-              <polyline
-                points="12 6 12 12 16 14"
-              />
-            </svg>
-
-            <span>Delivery Options</span>
-          </div>
-
-          <div
-            class="space-y-3 pt-1"
-          >
-            <!-- Send Immediately -->
-            <label
-              class="flex items-start gap-3 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="delivery"
-                value="immediately"
-                v-model="form.deliveryOption"
-                class="mt-0.5 accent-slate-900"
-              />
-
-              <div>
-                <span
-                  class="block text-xs font-bold text-slate-800"
-                >
-                  Send Immediately
-                </span>
-
-                <span
-                  class="block text-[11px] text-slate-400 mt-0.5"
-                >
-                  Message will dispatch upon saving.
-                </span>
-              </div>
-            </label>
-
-            <!-- Schedule for Later -->
-            <label
-              class="flex items-start gap-3 cursor-pointer group"
-            >
-              <input
-                type="radio"
-                name="delivery"
-                value="schedule"
-                v-model="form.deliveryOption"
-                class="mt-0.5 accent-slate-900"
-              />
-
-              <div>
-                <span
-                  class="block text-xs font-bold text-slate-800"
-                >
-                  Schedule for Later
-                </span>
-              </div>
-            </label>
-
-            <!-- Date & Time -->
-            <div
-              v-if="form.deliveryOption === 'schedule'"
-              class="grid grid-cols-2 gap-2 pt-1 pl-6"
-            >
-              <div class="relative">
-                <input
-                  type="date"
-                  v-model="form.scheduleDate"
-                  class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 text-slate-800 font-medium font-Inter"
-                />
-              </div>
-
-              <div class="relative">
-                <input
-                  type="time"
-                  v-model="form.scheduleTime"
-                  class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 text-slate-800 font-medium font-Inter"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Server-side error -->
+        <p v-if="serverError" class="text-xs text-red-600 px-1">
+          {{ serverError }}
+        </p>
       </div>
     </div>
   </div>
