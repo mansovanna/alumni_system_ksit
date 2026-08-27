@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('employments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('alumni_id')->unique()->constrained()->cascadeOnDelete();
-            $table->foreignId('company_name')->nullable();
+            $table->string('company_name')->nullable();
             $table->string('job_title')->nullable();
             $table->enum('employment_type', ['full_time', 'part_time', 'contract', 'internship', 'self_employed'])->nullable();
             $table->string('industry')->nullable();

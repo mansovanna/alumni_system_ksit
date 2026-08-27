@@ -392,6 +392,12 @@ Route::prefix('v1')->group(function () {
 
                 // Profile
                 Route::get('/profile', [AlumniIndexController::class, 'profile']);
+
+                Route::get('profile-info/{id}', [AlumniIndexController::class, 'getProfielID']);
+                Route::put('profile-info/{id}', [AlumniIndexController::class, 'updateProfielID']);
+                Route::post('profile-career', [AlumniIndexController::class, 'updateCareer']);
+
+                Route::delete('/unregister/{id}', [AlumniIndexController::class, 'unregister']);
             });
     });
 });

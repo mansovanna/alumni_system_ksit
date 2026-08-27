@@ -4,7 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Alumni;
+use App\Models\Employments;
 use App\Models\Event;
+use App\Models\EventRegistrations;
 use App\Models\Events;
 use App\Models\Notification;
 use App\Models\Notifications;
@@ -690,5 +692,175 @@ class AlumniIndexController extends Controller
             'message' => 'Profile',
             'data' => $alumni
         ]);
+    }
+
+    public function unregister($id)
+    {
+        $event = EventRegistrations::find($id);
+
+        if (!$event) {
+            return response()->json([
+                'message' => 'Event registration not found'
+            ], 404);
+        }
+
+        $event->deleteOrFail();
+
+        return response()->json([
+            'message' => 'Unregistered successfully'
+        ]);
+    }
+
+
+    public function getProfielID($id)
+    {
+        $alumni = Alumni::with(['user', 'major', 'employment'])->find($id);
+
+        return response()->json([
+            'message' => 'Profile User',
+            'data' => $alumni
+        ]);
+    }
+
+    public function updateProfielID(Request $request, $id)
+    {
+        $alumni = Alumni::findOrFail($id);
+
+        $validated = $request->validate([
+            'address'        => ['nullable', 'string', 'max:255'],
+            'bio'            => ['nullable', 'string'],
+            'graduation_year' => ['nullable', 'string', 'max:4'],
+            'linkedin_url'   => ['nullable', 'string', 'max:255'],
+            'facebook_url'   => ['nullable', 'string', 'max:255'],
+        ]);
+
+        // Update Alumni profile
+        $alumni->update($validated);
+
+        $employment = Employments::where('alumni_id', $alumni->id)->first();
+
+        if (!$employment) {
+            $employment = Employments::create([
+                'alumni_id' => $alumni->id,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated',
+            'data' => $alumni->load([
+                'user',
+                'major',
+                'employment',
+            ]),
+        ]);
+    }
+
+    public function updateCareer(Request $request)
+    {
+        $user = $request->user();
+
+        // Get first alumni record
+        $alumni = $user->alumni()->first();
+
+        if (!$alumni) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alumni profile not found.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'employment_type' => [
+                'nullable',
+                'in:full_time,part_time,contract,internship,self_employed',
+            ],
+
+            'job_title' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'company_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'industry' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'location' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'salary_range' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'start_date' => [
+                'nullable',
+                'date',
+            ],
+
+            'end_date' => [
+                'nullable',
+                'date',
+                'after_or_equal:start_date',
+            ],
+
+            'is_current' => [
+                'required',
+                'boolean',
+            ],
+        ]);
+
+        // If current job, remove end date
+        if ($validated['is_current']) {
+            $validated['end_date'] = null;
+        }
+
+        try {
+
+            $employment = Employments::updateOrCreate(
+                [
+                    'alumni_id' => $alumni->id,
+                ],
+                [
+                    'employment_type' => $validated['employment_type'] ?? null,
+                    'job_title'      => $validated['job_title'] ?? null,
+                    'company_name'   => $validated['company_name'] ?? null,
+                    'industry'       => $validated['industry'] ?? null,
+                    'location'       => $validated['location'] ?? null,
+                    'salary_range'   => $validated['salary_range'] ?? null,
+                    'start_date'     => $validated['start_date'] ?? null,
+                    'end_date'       => $validated['end_date'] ?? null,
+                    'is_current'     => $validated['is_current'],
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Career information updated successfully.',
+                'data' => [
+                    'employment' => $employment,
+                ],
+            ], 200);
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update career information.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

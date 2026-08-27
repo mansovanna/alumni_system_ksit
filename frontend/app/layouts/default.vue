@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from "#imports";
+import LoadingIcon from "~/components/icons/LoadingIcon.vue";
+import LogoutIcon from "~/components/icons/LogoutIcon.vue";
 
 const navLinks = [
   { name: "Home", path: "/", icon: "home" },
@@ -103,6 +105,16 @@ const avata = useAvatar();
               </template>
             </ClientOnly>
           </NuxtLink>
+
+          <button
+            @click="authStore.logout"
+            :disabled="authStore.isLoading"
+            title="Logout"
+            class="flex justify-center items-center gap-1.5 px-4 bg-slate-100 hover:bg-slate-200 p-2 rounded-full cursor-pointer text-red-500"
+          >
+            <LoadingIcon v-if="authStore.isLoading" /> <LogoutIcon v-else />
+            <span class="text-xs">Logout</span>
+          </button>
         </div>
       </div>
     </header>

@@ -101,7 +101,7 @@ type FormData = {
 
   /* Employment */
   status: string;
-  company_id: string;
+  company_name: string;
   job_title: string;
   employment_type: string;
   industry: string;
@@ -143,7 +143,7 @@ const formData = ref<FormData>({
 
   /* Employment */
   status: "",
-  company_id: "",
+  company_name: "",
   job_title: "",
   employment_type: "",
   industry: "",
@@ -305,7 +305,7 @@ watch(
   () => formData.value.status,
   (value) => {
     if (value !== "employed") {
-      formData.value.company_id = "";
+      formData.value.company_name = "";
       formData.value.job_title = "";
       formData.value.employment_type = "";
       formData.value.industry = "";
@@ -315,7 +315,7 @@ watch(
       formData.value.end_date = "";
       formData.value.is_current = false;
 
-      errors.value.company_id = undefined;
+      errors.value.company_name = undefined;
       errors.value.job_title = undefined;
       errors.value.employment_type = undefined;
       errors.value.industry = undefined;
@@ -577,7 +577,7 @@ const submit = async () => {
    */
 
   const hasEmploymentData =
-    formData.value.company_id ||
+    formData.value.company_name ||
     formData.value.job_title ||
     formData.value.employment_type ||
     formData.value.industry ||
@@ -588,8 +588,8 @@ const submit = async () => {
     formData.value.is_current;
 
   if (hasEmploymentData) {
-    if (formData.value.company_id) {
-      data.append("company_id", formData.value.company_id);
+    if (formData.value.company_name) {
+      data.append("company_id", formData.value.company_name);
     }
 
     if (formData.value.job_title) {
@@ -1104,21 +1104,21 @@ const close = () => {
             </div>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <!-- Company ID -->
+              <!-- Company -->
               <div>
                 <label class="mb-1 block text-xs font-medium text-slate-600">
-                  Company ID
+                  Company 
                   <span class="font-normal text-slate-400"> (optional) </span>
                 </label>
 
                 <input
-                  v-model="formData.company_id"
-                  type="number"
+                  v-model="formData.company_name"
+                  type="text"
                   min="1"
                   placeholder="Optional"
                   class="form-input"
                   :class="{
-                    'form-input-error': errors.company_id,
+                    'form-input-error': errors.company_name,
                   }"
                 />
 
@@ -1126,8 +1126,8 @@ const close = () => {
                   Leave empty if the company is not known.
                 </p>
 
-                <p v-if="errors.company_id" class="form-error">
-                  {{ errors.company_id }}
+                <p v-if="errors.company_name" class="form-error">
+                  {{ errors.company_name }}
                 </p>
               </div>
 

@@ -121,7 +121,7 @@ export const useProfileAlumni = defineStore("profileAlumni", {
   actions: {
     async getProfile() {
       const { $api } = useNuxtApp();
-
+      this.isLoading = true;
       try {
         const res = await $api.get<AlumniProfileResponse>("alumnis/profile");
         this.data = res.data.data;
@@ -130,6 +130,12 @@ export const useProfileAlumni = defineStore("profileAlumni", {
       } finally {
         this.isLoading = false;
       }
+    },
+
+    async unRegister(id: number) {
+      const { $api } = useNuxtApp();
+
+      return $api.delete(`/alumnis/unregister/${id}`);
     },
   },
 });
