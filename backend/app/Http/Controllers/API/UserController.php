@@ -422,13 +422,15 @@ class UserController extends Controller
     public function alumniStore(Request $request)
     {
         // =========================================================
-        // 1. Validate
+        // 1. Validate Request
         // =========================================================
 
-        $request->validate([
+        $validated = $request->validate([
+
             // -----------------------------------------------------
             // User
             // -----------------------------------------------------
+
             'name_khmer' => [
                 'required',
                 'string',
@@ -467,6 +469,7 @@ class UserController extends Controller
             // -----------------------------------------------------
             // Alumni
             // -----------------------------------------------------
+
             'major_id' => [
                 'required',
                 'exists:majors,id',
@@ -506,7 +509,10 @@ class UserController extends Controller
                 'string',
             ],
 
-            // Optional social links
+            // -----------------------------------------------------
+            // Social Links
+            // -----------------------------------------------------
+
             'linkedin_url' => [
                 'nullable',
                 'url',
@@ -520,6 +526,7 @@ class UserController extends Controller
             // -----------------------------------------------------
             // Employment Status
             // -----------------------------------------------------
+
             'employment_status' => [
                 'required',
                 'string',
@@ -528,16 +535,12 @@ class UserController extends Controller
 
             // -----------------------------------------------------
             // Employment
-            //
-            // All fields are OPTIONAL because:
-            // Admin does not necessarily know the alumni's
-            // employment details.
-            //
-            // Alumni can complete these later.
             // -----------------------------------------------------
-            'company_id' => [
+
+            'company_name' => [
                 'nullable',
-                'exists:companies,id',
+                'string',
+                'max:255',
             ],
 
             'job_title' => [
@@ -549,7 +552,7 @@ class UserController extends Controller
             'employment_type' => [
                 'nullable',
                 'string',
-                'in:full_time,part_time,contract,internship,freelance',
+                'in:full_time,part_time,contract,internship,self_employed',
             ],
 
             'industry' => [
@@ -589,6 +592,7 @@ class UserController extends Controller
             // -----------------------------------------------------
             // Profile Image
             // -----------------------------------------------------
+
             'image' => [
                 'nullable',
                 'image',
@@ -596,10 +600,6 @@ class UserController extends Controller
                 'max:5120',
             ],
         ]);
-
-        // =========================================================
-        // 2. Find Alumni Role
-        // =========================================================
 
         // =========================================================
         // 2. Find Alumni Role
@@ -617,7 +617,7 @@ class UserController extends Controller
         }
 
         // =========================================================
-        // 3. Handle Image Upload
+        // 3. Handle Profile Image
         // =========================================================
 
         $imagePath = null;
@@ -626,9 +626,9 @@ class UserController extends Controller
 
             $image = $request->file('image');
 
-            // Make sure directory exists
             $uploadDirectory = public_path('uploads/alumni');
 
+            // Create directory if it does not exist
             if (!is_dir($uploadDirectory)) {
                 mkdir($uploadDirectory, 0755, true);
             }
@@ -646,19 +646,20 @@ class UserController extends Controller
         }
 
         // =========================================================
-        // 4. Create User + Alumni + Employment
+        // 4. Database Transaction
         // =========================================================
 
         DB::beginTransaction();
 
         try {
 
-            // -----------------------------------------------------
-            // Create User
-            // -----------------------------------------------------
+            // =====================================================
+            // 4.1 Create User
+            // =====================================================
 
             $user = User::create([
                 'name_khmer' => $request->name_khmer,
+
                 'name_english' => $request->name_english,
 
                 'email' => $request->filled('email')
@@ -669,16 +670,18 @@ class UserController extends Controller
                     ? $request->mobile
                     : null,
 
-                'password' => Hash::make($request->password),
+                'password' => Hash::make(
+                    $request->password
+                ),
 
                 'role_id' => $role->id,
 
                 'status' => 'active',
             ]);
 
-            // -----------------------------------------------------
-            // Create Alumni
-            // -----------------------------------------------------
+            // =====================================================
+            // 4.2 Create Alumni
+            // =====================================================
 
             $alumni = Alumni::create([
                 'user_id' => $user->id,
@@ -706,18 +709,14 @@ class UserController extends Controller
                 'employment_status' => $request->employment_status,
             ]);
 
-            // -----------------------------------------------------
-            // Create Employment
+            // =====================================================
+            // 4.3 Check Employment Data
             //
-            // Only create if at least one employment field
-            // has been provided.
-            //
-            // This allows admin to create an "employed" alumni
-            // without knowing company/job information yet.
-            // -----------------------------------------------------
+            // company_name is used instead of company_id
+            // =====================================================
 
             $hasEmploymentData =
-                $request->filled('company_id') ||
+                $request->filled('company_name') ||
                 $request->filled('job_title') ||
                 $request->filled('employment_type') ||
                 $request->filled('industry') ||
@@ -727,16 +726,25 @@ class UserController extends Controller
                 $request->filled('end_date') ||
                 $request->boolean('is_current');
 
+            // =====================================================
+            // 4.4 Create Employment
+            //
+            // Only create employment when:
+            // - employment_status = employed
+            // - At least one employment field exists
+            // =====================================================
+
             if (
                 $request->employment_status === 'employed'
                 && $hasEmploymentData
             ) {
 
                 Employments::create([
+
                     'alumni_id' => $alumni->id,
 
-                    // Optional
-                    'company_id' => $request->company_id,
+                    // Company name instead of company_id
+                    'company_name' => $request->company_name,
 
                     'job_title' => $request->job_title,
 
@@ -750,6 +758,8 @@ class UserController extends Controller
 
                     'start_date' => $request->start_date,
 
+                    // If current employment:
+                    // end_date must be NULL
                     'end_date' => $request->boolean('is_current')
                         ? null
                         : $request->end_date,
@@ -758,14 +768,14 @@ class UserController extends Controller
                 ]);
             }
 
-            // -----------------------------------------------------
-            // Commit
-            // -----------------------------------------------------
+            // =====================================================
+            // 5. Commit Transaction
+            // =====================================================
 
             DB::commit();
 
             // =====================================================
-            // 5. Load Relationships
+            // 6. Load Relationships
             // =====================================================
 
             $alumni->load([
@@ -775,25 +785,27 @@ class UserController extends Controller
             ]);
 
             // =====================================================
-            // 6. Response
+            // 7. Response
             // =====================================================
 
             return response()->json([
                 'success' => true,
+
                 'message' => 'Alumni created successfully.',
+
                 'data' => $alumni,
             ], 201);
         } catch (\Throwable $e) {
 
-            // -----------------------------------------------------
-            // Rollback
-            // -----------------------------------------------------
+            // =====================================================
+            // Rollback Transaction
+            // =====================================================
 
             DB::rollBack();
 
-            // -----------------------------------------------------
-            // Delete uploaded image if transaction failed
-            // -----------------------------------------------------
+            // =====================================================
+            // Delete Uploaded Image
+            // =====================================================
 
             if (
                 $imagePath &&
@@ -802,13 +814,15 @@ class UserController extends Controller
                 unlink(public_path($imagePath));
             }
 
-            // -----------------------------------------------------
-            // Error response
-            // -----------------------------------------------------
+            // =====================================================
+            // Error Response
+            // =====================================================
 
             return response()->json([
                 'success' => false,
+
                 'message' => 'Failed to create alumni.',
+
                 'error' => $e->getMessage(),
             ], 500);
         }

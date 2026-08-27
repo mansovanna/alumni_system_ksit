@@ -35,7 +35,7 @@ const authStore = useAuthStore();
 <template>
   <div
     class="h-screen bg-secondary text-white flex flex-col justify-start text-nowrap duration-500 ease-in-out"
-    :class="sideBarStore.sidebar ? 'w-64' : 'w-18 max-lg:w-64'"
+    :class="!sideBarStore.sidebar ? 'w-64' : 'w-18 max-lg:w-64'"
   >
     <div
       class="px-4 py-2 flex justify-start gap-4 items-center overflow-x-clip w-full"
@@ -88,7 +88,7 @@ const authStore = useAuthStore();
         <template v-else>
           <LogoutIcon class="size-7 shrink-0" />
 
-          <span v-if="sideBarStore.isSide" class="text-sm whitespace-nowrap">
+          <span v-if="!sideBarStore.isSide" class="text-sm whitespace-nowrap">
             Logout
           </span>
         </template>

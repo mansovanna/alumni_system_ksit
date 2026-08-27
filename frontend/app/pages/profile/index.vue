@@ -8,6 +8,8 @@ definePageMeta({
 
 const profileStore = useProfileAlumni();
 
+const avatar = useAvatar();
+
 // Profile Data State
 const profile = ref({
   name: "Alex Chen",
@@ -20,12 +22,15 @@ const profile = ref({
   location: "San Francisco, CA",
 });
 
-// Employment Status State
-const employment = ref({
-  status: "Employed Full-Time",
-  role: "Senior Frontend Developer",
-  company: "TechCorp Solutions",
-});
+// ----------------------------------------------
+function formatDayMonthShort(dateInput: string) {
+  const date = new Date(dateInput);
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 // Career Timeline State
 const timeline = ref([
@@ -55,25 +60,41 @@ const timeline = ref([
   },
 ]);
 
-// Registered Events State
-const registeredEvents = ref([
-  {
-    id: 1,
-    dateMonth: "OCT",
-    dateDay: "15",
-    title: "Annual Tech Alumni Mixer",
-    info: "6:00 PM PST",
-    type: "time",
-  },
-  {
-    id: 2,
-    dateMonth: "NOV",
-    dateDay: "02",
-    title: "Career Mentorship Panel",
-    info: "Virtual Event",
-    type: "virtual",
-  },
-]);
+function getDateMonth(dateStr: string) {
+  return new Date(dateStr)
+    .toLocaleDateString("en-US", {
+      month: "short", // OCT
+    })
+    .toUpperCase();
+}
+
+function getDateDay(dateStr: string) {
+  return new Date(dateStr).getDate(); // 12
+}
+
+const isLoading = ref({
+  id: 0,
+  value: false,
+});
+
+const unRegister = async (id: number) => {
+  if (id) {
+    isLoading.value.id = id;
+    isLoading.value.value = true;
+    try {
+      const res = await profileStore.unRegister(id);
+
+      if (res.status == 200 && profileStore.data?.event_registrations) {
+        profileStore.data.event_registrations =
+          profileStore.data.event_registrations.filter((e) => e.id != id);
+      }
+    } catch (e: any) {
+      console.log(e);
+    } finally {
+      isLoading.value.value = false;
+    }
+  }
+};
 
 onMounted(() => {
   profileStore.getProfile();
@@ -93,8 +114,11 @@ onMounted(() => {
         <!-- Avatar with Edit Icon -->
         <div class="relative">
           <img
-            :src="profile.avatar"
-            :alt="profile.name"
+            :src="
+              profileStore.data.user.profile_url ??
+              avatar.textToImage(profileStore.data.user.name_english)
+            "
+            :alt="profileStore.data.user.name_english"
             class="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-emerald-500/20"
           />
           <button
@@ -120,10 +144,11 @@ onMounted(() => {
         <!-- Name & Education -->
         <div class="space-y-1">
           <h1 class="text-xl font-bold text-slate-900 tracking-tight">
-            {{ profile.name }}
+            {{ profileStore.data.user.name_english }}
           </h1>
-          <p class="text-xs text-slate-500 font-medium">
-            Class of {{ profile.classYear }} • {{ profile.degree }}
+          <p class="text-xs text-slate-500 font-medium capitalize">
+            Class of {{ profileStore.data.graduation_year }} •
+            {{ profileStore.data.major.name }}
           </p>
         </div>
 
@@ -145,7 +170,9 @@ onMounted(() => {
                 d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
               />
             </svg>
-            <span class="truncate">{{ profile.email }}</span>
+            <span class="truncate">{{
+              profileStore.data.user.email ?? "N/A"
+            }}</span>
           </div>
 
           <div class="flex items-center gap-3">
@@ -160,7 +187,7 @@ onMounted(() => {
                 d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
               />
             </svg>
-            <span>{{ profile.phone }}</span>
+            <span>{{ profileStore.data.user.mobile ?? "N/A" }}</span>
           </div>
 
           <div class="flex items-center gap-3">
@@ -176,7 +203,7 @@ onMounted(() => {
               />
               <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span>{{ profile.location }}</span>
+            <span>{{ profileStore.data.address ?? "N/A" }}</span>
           </div>
         </div>
 
@@ -192,7 +219,7 @@ onMounted(() => {
       <!-- loading -->
 
       <div
-        v-else-if="!profileStore.isLoading && !profileStore.data"
+        v-else-if="profileStore.isLoading && !profileStore.data"
         class="w-full bg-white rounded-2xl p-6 border border-teal-100/80 shadow-xs flex flex-col items-center text-center space-y-5"
       >
         <div class="size-30 bg-slate-200 animate-pulse rounded-full"></div>
@@ -313,7 +340,7 @@ onMounted(() => {
 
           <!-- loading -->
           <div
-            v-if="!profileStore.isLoading && !profileStore.data?.employment"
+            v-if="profileStore.isLoading && !profileStore.data?.employment"
             class="bg-white rounded-2xl p-6 border border-teal-100/80 shadow-xs space-y-4"
           >
             <div class="flex items-center justify-between">
@@ -349,57 +376,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 2. Career Timeline Card -->
-        <div
-          v-if="false"
-          class="bg-white rounded-2xl p-6 border border-teal-100/80 shadow-xs space-y-6"
-        >
-          <h2 class="text-base font-bold text-slate-900 tracking-tight">
-            Career Timeline
-          </h2>
-
-          <div
-            class="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200"
-          >
-            <div v-for="item in timeline" :key="item.id" class="relative">
-              <span
-                class="absolute -left-[1.3rem] top-1.5 w-3 h-3 rounded-full border-2 bg-white"
-                :class="
-                  item.active
-                    ? 'border-[#036250] bg-[#036250]'
-                    : 'border-slate-300 bg-slate-300'
-                "
-              ></span>
-
-              <div class="space-y-0.5">
-                <span
-                  class="block text-[11px] font-semibold"
-                  :class="item.active ? 'text-[#036250]' : 'text-slate-400'"
-                >
-                  {{ item.period }}
-                </span>
-                <h3 class="text-sm font-bold text-slate-900">
-                  {{ item.role }}
-                </h3>
-                <p class="text-xs text-slate-500 font-medium">
-                  {{ item.company }}
-                  <template v-if="item.location"
-                    >• {{ item.location }}</template
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="$router.push({ name: 'profile-milestone' })"
-            class="inline-flex items-center gap-1.5 text-xs font-bold text-[#036250] hover:underline cursor-pointer pt-2"
-          >
-            <span>+</span> Add Milestone
-          </button>
-        </div>
-
         <!-- 3. Registered Events Card -->
         <div
           class="bg-white rounded-2xl p-6 border border-teal-100/80 shadow-xs space-y-4"
@@ -424,11 +400,12 @@ onMounted(() => {
                 >
                   <span
                     class="block text-[9px] font-extrabold uppercase leading-none opacity-80"
-                    >{{ "event.dateMont" }}</span
                   >
-                  <span class="block text-xs font-black leading-tight">{{
-                    "event.dateDay"
-                  }}</span>
+                    {{ getDateMonth(event.event.start_date) }}
+                  </span>
+                  <span class="block text-xs font-black leading-tight">
+                    {{ getDateDay(event.event.start_date) }}
+                  </span>
                 </div>
 
                 <div class="space-y-0.5">
@@ -460,13 +437,14 @@ onMounted(() => {
                       <polygon points="23 7 16 12 23 17 23 7" />
                       <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                     </svg>
-                    <span class=" capitalize">{{ event.event.event_type }}</span>
+                    <span class="capitalize">{{ event.event.event_type }}</span>
                   </div>
                 </div>
               </div>
 
               <button
                 type="button"
+                @click="unRegister(event.id)"
                 class="w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg transition cursor-pointer"
               >
                 Unregister
@@ -474,8 +452,8 @@ onMounted(() => {
             </div>
 
             <div
-              v-if="
-                !profileStore.isLoading &&
+              v-else-if="
+                profileStore.isLoading &&
                 !profileStore.data?.event_registrations
               "
               class="w-full rounded-xl border border-slate-200 p-3 flex justify-between items-center gap-3"
@@ -500,6 +478,16 @@ onMounted(() => {
               </div>
 
               <div class="w-25 bg-slate-200 animate-pulse p-4 rounded-xl"></div>
+            </div>
+
+            <div
+              v-if="
+                !profileStore.isLoading &&
+                !profileStore.data?.event_registrations
+              "
+              class="w-full flex justify-center items-center font-Inter text-xs text-slate-400"
+            >
+              <p>No Join events</p>
             </div>
           </div>
         </div>
