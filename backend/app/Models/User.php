@@ -9,6 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use \Spatie\Permission\Contracts\Role;
 
 class User extends Authenticatable
 {
@@ -64,7 +65,7 @@ class User extends Authenticatable
 
     public function role()
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(\App\Models\Role::class);
     }
     public function alumni()
     {
@@ -83,5 +84,10 @@ class User extends Authenticatable
         return $this->profile
             ? asset($this->profile)
             : null;
+    }
+
+    public function getStoredRole()
+    {
+        return $this->role;
     }
 }

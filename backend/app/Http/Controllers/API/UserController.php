@@ -679,6 +679,9 @@ class UserController extends Controller
                 'status' => 'active',
             ]);
 
+            $user->assignRole($role);
+
+
             // =====================================================
             // 4.2 Create Alumni
             // =====================================================
