@@ -65,6 +65,7 @@ const avata = useAvatar();
         <div class="flex items-center space-x-3 sm:space-x-4">
           <NuxtLink
             to="/notifications"
+            v-if="false"
             class="text-slate-500 hover:text-successDark transition p-1"
           >
             <svg

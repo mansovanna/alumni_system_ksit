@@ -56,10 +56,6 @@ class AdminController extends Controller
             'role' => 'required|string|in:staff,admin',
         ]);
 
-        // ---------------------------------------------------------
-        // Detect login type
-        // Email OR Mobile
-        // ---------------------------------------------------------
         $input = trim($request->login);
 
         $isEmail = filter_var($input, FILTER_VALIDATE_EMAIL) !== false;
@@ -206,5 +202,4 @@ class AdminController extends Controller
             'data' => $user
         ]);
     }
-
 }

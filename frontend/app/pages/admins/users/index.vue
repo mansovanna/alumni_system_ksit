@@ -380,7 +380,7 @@ onMounted(() => {
 
             <!-- Work -->
             <td class="px-4 py-3">
-              <p class="text-sm text-slate-600">{{ item.gpa ?? "N/A" }}</p>
+              <!-- <p class="text-sm text-slate-600">{{ item.gpa ?? "N/A" }}</p> -->
               <p class="text-xs text-slate-400">
                 {{
                   item.employment?.job_title
@@ -407,6 +407,7 @@ onMounted(() => {
               <div class="flex justify-end items-center gap-2">
                 <!-- Reject -->
                 <button
+                  v-if="false"
                   :disabled="
                     loadingId === item.id && loadingAction === 'rejected'
                   "

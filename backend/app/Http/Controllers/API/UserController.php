@@ -181,31 +181,61 @@ class UserController extends Controller
     |--------------------------------------------------------------------------
     */
 
+
+
+
+
     public function register(Request $request)
     {
+        $phoneRegex = '/^(0|\+855)[0-9]{7,10}$/';
+
         $validated = $request->validate([
-            'name_khmer' => [
+            'full_name_kh' => [
                 'nullable',
                 'string',
                 'max:255',
             ],
 
-            'name_english' => [
+            'full_name_en' => [
                 'required',
                 'string',
                 'max:255',
             ],
 
-            'email' => [
-                'required',
-                'email',
-                'unique:users,email',
-            ],
-
-            'mobile' => [
+            'contact' => [
                 'required',
                 'string',
-                'unique:users,mobile',
+                'max:255',
+
+                function ($attribute, $value, $fail) use ($phoneRegex) {
+                    $isEmail = filter_var(
+                        $value,
+                        FILTER_VALIDATE_EMAIL
+                    );
+
+                    $isPhone = preg_match(
+                        $phoneRegex,
+                        $value
+                    );
+
+                    if (!$isEmail && !$isPhone) {
+                        $fail(
+                            'The contact field must be a valid email address or phone number.'
+                        );
+                    }
+                },
+            ],
+
+            'major_id' => [
+                'nullable',
+                'exists:majors,id',
+            ],
+
+            'graduation_year' => [
+                'nullable',
+                'integer',
+                'min:1980',
+                'max:' . date('Y'),
             ],
 
             'password' => [
@@ -217,15 +247,49 @@ class UserController extends Controller
         ]);
 
         /*
-        |--------------------------------------------------------------------------
-        | Get Alumni Role
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Determine Email / Phone
+    |--------------------------------------------------------------------------
+    */
 
-        $role = \App\Models\Role::where(
-            'name',
-            'alumni'
-        )->first();
+        $isEmail = (bool) filter_var(
+            $validated['contact'],
+            FILTER_VALIDATE_EMAIL
+        );
+
+        $contactColumn = $isEmail
+            ? 'email'
+            : 'mobile';
+
+        /*
+    |--------------------------------------------------------------------------
+    | Check Duplicate
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            User::where(
+                $contactColumn,
+                $validated['contact']
+            )->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'contact' =>
+                'This ' .
+                    ($isEmail ? 'email' : 'phone number') .
+                    ' is already registered.',
+            ]);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Get Alumni Role
+    |--------------------------------------------------------------------------
+    */
+
+        $role = Role::where('name', 'alumni')
+            ->where('guard_name', 'web')
+            ->first();
 
         if (!$role) {
             return response()->json([
@@ -235,54 +299,103 @@ class UserController extends Controller
         }
 
         /*
+    |--------------------------------------------------------------------------
+    | Create User + Alumni
+    |--------------------------------------------------------------------------
+    */
+
+        $user = DB::transaction(function () use (
+            $validated,
+            $isEmail,
+            $role
+        ) {
+            $user = User::create([
+                'name_khmer' => $validated['full_name_kh'] ?? null,
+
+                'name_english' => $validated['full_name_en'],
+
+                /*
+             * Your custom role_id
+             */
+                'role_id' => $role->id,
+
+                'email' => $isEmail
+                    ? $validated['contact']
+                    : null,
+
+                'mobile' => !$isEmail
+                    ? $validated['contact']
+                    : null,
+
+                'status' => 'active',
+
+                'password' => Hash::make(
+                    $validated['password']
+                ),
+            ]);
+
+            /*
         |--------------------------------------------------------------------------
-        | Create User
+        | IMPORTANT:
+        | Assign Spatie Role
         |--------------------------------------------------------------------------
         */
 
-        $user = User::create([
-            'name_khmer' => $validated['name_khmer'] ?? null,
+            $user->assignRole($role);
 
-            'name_english' => $validated['name_english'],
+            /*
+        |--------------------------------------------------------------------------
+        | Create Alumni Profile
+        |--------------------------------------------------------------------------
+        */
 
-            'role_id' => $role->id,
+            if (
+                !empty($validated['major_id']) ||
+                !empty($validated['graduation_year'])
+            ) {
+                Alumni::create([
+                    'user_id' => $user->id,
 
-            'email' => $validated['email'],
+                    'major_id' =>
+                    $validated['major_id'] ?? null,
 
-            'mobile' => $validated['mobile'],
+                    'graduation_year' =>
+                    $validated['graduation_year'] ?? null,
+                ]);
+            }
 
-            'status' => 'active',
-
-            'password' => Hash::make(
-                $validated['password']
-            ),
-        ]);
-
-        $user->load('role');
+            return $user;
+        });
 
         /*
-        |--------------------------------------------------------------------------
-        | Create Token
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Load Relationships
+    |--------------------------------------------------------------------------
+    */
 
-        $token = $user
-            ->createToken('mobile-app')
-            ->plainTextToken;
+        $user->load([
+            'role',
+            'alumniOne',
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Response
+    |--------------------------------------------------------------------------
+    */
 
         return response()->json([
             'success' => true,
+
             'message' => 'Registration successful.',
 
             'data' => [
                 'user' => $this->userData($user),
-
-                'token' => $token,
-
-                'token_type' => 'Bearer',
             ],
         ], 201);
     }
+
+
 
 
     /*

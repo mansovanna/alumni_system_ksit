@@ -23,7 +23,7 @@ const pages = reactive([
     icon: markRaw(AnalyIcon),
     route: "/admins/report",
   },
-  { name: "Messages", icon: markRaw(MessageIcon), route: "/admins/messages" },
+  // { name: "Messages", icon: markRaw(MessageIcon), route: "/admins/messages" },
   { name: "Events", icon: markRaw(DateIcon), route: "/admins/events" },
 ]);
 
@@ -42,8 +42,8 @@ const authStore = useAuthStore();
     >
       <img src="../../assets/svg/LOGO-APP.svg" alt="" class="w-12 h-12" />
       <div class="overflow-clip">
-        <h1 class="text-sm font-bokor">ប្រព័ន្ធគ្រប់គ្រងអតីតនិស្សនិត</h1>
-        <p class="text-sm text-gray-400 font-Poppins">Alumni Portal</p>
+        <h1 class="text-sm font-bokor">សមាគមន៍អតីតនិស្សិត</h1>
+        <p class="text-sm text-gray-400 font-Poppins">Alumni Association</p>
       </div>
     </div>
     <hr class="border-gray-600" />

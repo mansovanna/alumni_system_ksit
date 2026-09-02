@@ -436,7 +436,7 @@ class AlumniIndexController extends Controller
             ->with([
                 'user',
                 'major',
-                'employment.company',
+
             ])
             ->where('user_id', '!=', $userId);
 

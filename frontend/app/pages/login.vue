@@ -13,8 +13,8 @@ definePageMeta({
 });
 
 const formData = reactive({
-  login: "012000001",
-  password: "password",
+  login: "",
+  password: "",
 });
 
 const isPasswordVisible = ref(false);
@@ -51,9 +51,9 @@ const router = useRouter();
 
 const handleSubmit = () => {
   if (validateForm()) {
-    let data = new FormData()
-    data.append('login', formData.login)
-    data.append('password', formData.password)
+    let data = new FormData();
+    data.append("login", formData.login);
+    data.append("password", formData.password);
     authStore.login(data);
 
     // router.push({name: 'admins'})
@@ -135,9 +135,9 @@ const handleSubmit = () => {
             <h1
               class="text-xl text-white mt-2 font-moul text-center leading-10"
             >
-              ប្រព័ន្ទគ្រប់គ្រងអតីតនិស្សិត
+              សមាគមន៍អតីតនិស្សិត
             </h1>
-            <p class="text-white text-base mt-1">Alumni System Management</p>
+            <p class="text-white text-base mt-1">Alumni Association</p>
           </div>
         </div>
         <!-- End name and logo -->
@@ -151,9 +151,6 @@ const handleSubmit = () => {
           <h1 class="text-lg font-black text-primary text-start w-full">
             Login System
           </h1>
-          <p class="text-start w-full text-xs text-primary font-Inter">
-            Please complete info befor submit
-          </p>
 
           <form
             @submit.prevent="handleSubmit"
@@ -163,8 +160,7 @@ const handleSubmit = () => {
               <!-- Block User name -->
               <div class="w-full flex flex-col gap-1">
                 <label class="text-left text-xs text-slate-500"
-                  >User Name {{ formData.login }}
-                  <span class="text-red-500 text-xs">*</span></label
+                  >User Name<span class="text-red-500 text-xs">*</span></label
                 >
                 <div class="relative">
                   <input

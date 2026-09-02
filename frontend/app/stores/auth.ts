@@ -49,22 +49,12 @@ export const useAuthStore = defineStore("auth", {
     },
 
     // register
-    async registrer() {
-      this.isLoading = true;
-      let data = new FormData();
-      data.append("login", "");
-      data.append("password", "");
-
-      try {
-        //
-      } catch (error) {
-        console.log(error);
-      } finally {
-        this.isLoading = false;
-      }
+    register(data: FormData) {
+      const { $api } = useNuxtApp();
+      return $api.post("/register", data);
     },
 
-    // Block get curren user
+    // Block get current user
     async fetchUser() {
       const token = useCookie("auth_token").value;
 
